@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getAllWorkouts, getAllRecords, getDateRange, calculateTotalVolume, getWorkoutsByDateRange } from '@/lib/storage';
+import { Workout, ProgressStats } from '@/types/workout';
 
 const PRIMARY = '#2563ff';
 const BORDER = '#e5e7eb';
@@ -11,10 +13,75 @@ type Timeframe = 'Weekly' | 'Monthly' | 'Yearly';
 export default function ProgressScreen() {
   const [timeframe, setTimeframe] = useState<Timeframe>('Weekly');
   const [overviewTab, setOverviewTab] = useState<'overview' | 'exercise'>('overview');
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [stats, setStats] = useState<ProgressStats>({
+    volumeChange: 0,
+    workoutChange: 0,
+    currentVolume: 0,
+    previousVolume: 0,
+    currentWorkouts: 0,
+    previousWorkouts: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  const loadData = () => {
+    setLoading(true);
+    try {
+      const allWorkouts = getAllWorkouts();
+      setWorkouts(allWorkouts);
+      
+      const timeframeStats = getTimeframeStats(timeframe);
+      setStats(timeframeStats);
+    } catch (error) {
+      console.error('Error loading workout data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTimeframeStats = (timeframe: Timeframe): ProgressStats => {
+    const { currentPeriodStart, currentPeriodEnd, previousPeriodStart, previousPeriodEnd } = getDateRange(timeframe);
+    
+    const currentWorkouts = getWorkoutsByDateRange(currentPeriodStart, currentPeriodEnd);
+    const previousWorkouts = getWorkoutsByDateRange(previousPeriodStart, previousPeriodEnd);
+    
+    const currentVolume = calculateTotalVolume(currentWorkouts);
+    const previousVolume = calculateTotalVolume(previousWorkouts);
+    
+    // Fix division by zero bug
+    const volumeChange = previousVolume === 0 
+      ? (currentVolume > 0 ? 100 : 0)
+      : Math.round(((currentVolume - previousVolume) / previousVolume) * 100);
+    
+    const workoutChange = currentWorkouts.length - previousWorkouts.length;
+    
+    return {
+      volumeChange,
+      workoutChange,
+      currentVolume,
+      previousVolume,
+      currentWorkouts: currentWorkouts.length,
+      previousWorkouts: previousWorkouts.length
+    };
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [timeframe]);
 
   const statCards = [
-    { label: 'Volume Change', value: '-100%', sub: 'vs previous week', color: '#ef4444' },
-    { label: 'Workout Change', value: '-5', sub: 'vs previous week', color: '#ef4444' },
+    { 
+      label: 'Volume Change', 
+      value: loading ? '...' : `${stats.volumeChange > 0 ? '+' : ''}${stats.volumeChange}%`, 
+      sub: `vs previous ${timeframe.toLowerCase().slice(0, -2)}`, 
+      color: stats.volumeChange >= 0 ? '#10b981' : '#ef4444' 
+    },
+    { 
+      label: 'Workout Change', 
+      value: loading ? '...' : `${stats.workoutChange > 0 ? '+' : ''}${stats.workoutChange}`, 
+      sub: `vs previous ${timeframe.toLowerCase().slice(0, -2)}`, 
+      color: stats.workoutChange >= 0 ? '#10b981' : '#ef4444' 
+    },
   ];
 
   return (

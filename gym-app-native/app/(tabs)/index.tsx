@@ -1,22 +1,96 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { Card, SectionHeader, StatTile } from '../../components/ui';
-import {
-  formatDateLabel,
-  formatDuration,
-  getRecentWorkouts,
-  getStats,
-  useWorkouts,
-} from '../../providers/WorkoutsProvider';
+import { getAllWorkouts, getWorkoutStreak, calculateTotalVolume, getDateRange, getWorkoutsByDateRange } from '@/lib/storage';
+import { Workout } from '@/types/workout';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { workouts } = useWorkouts();
-  const stats = getStats(workouts);
-  const recentWorkouts = getRecentWorkouts(workouts);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
+    try {
+      const allWorkouts = getAllWorkouts();
+      setWorkouts(allWorkouts);
+    } catch (error) {
+      console.error('Error loading workouts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStats = () => {
+    if (workouts.length === 0) {
+      return {
+        totalWorkouts: 0,
+        totalVolume: 0,
+        weeklyVolume: 0,
+        weeklyWorkouts: 0,
+        currentStreak: 0,
+        streak: 0
+      };
+    }
+
+    const totalVolume = calculateTotalVolume(workouts);
+    const { currentPeriodStart, currentPeriodEnd } = getDateRange('Weekly');
+    const weeklyWorkouts = getWorkoutsByDateRange(currentPeriodStart, currentPeriodEnd);
+    const weeklyVolume = calculateTotalVolume(weeklyWorkouts);
+    const currentStreak = getWorkoutStreak();
+
+    return {
+      totalWorkouts: workouts.length,
+      totalVolume,
+      weeklyVolume,
+      weeklyWorkouts: weeklyWorkouts.length,
+      currentStreak,
+      streak: currentStreak
+    };
+  };
+
+  const getRecentWorkouts = () => {
+    return workouts.slice(0, 3);
+  };
+
+  const stats = getStats();
+  const recentWorkouts = getRecentWorkouts();
+
+  const formatDateLabel = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}k`;
+    }
+    return num.toString();
+  };
 
   const quickActions = [
     {
@@ -104,12 +178,12 @@ export default function Dashboard() {
                 onPress={() => router.push('/history')}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.workoutTitle}>{formatDateLabel(workout.performedAt)}</Text>
+                  <Text style={styles.workoutTitle}>{formatDateLabel(workout.date)}</Text>
                   <Text style={styles.workoutSubtitle}>
-                    {workout.title} • {workout.totalSets} sets • {formatNumber(workout.totalVolume)} kg
+                    {workout.name} • {workout.exercises.reduce((total, ex) => total + ex.sets.length, 0)} sets • {formatNumber(workout.totalVolume)} kg
                   </Text>
                 </View>
-                <Text style={styles.workoutDuration}>{formatDuration(workout.durationMinutes)}</Text>
+                <Text style={styles.workoutDuration}>{formatDuration(workout.duration)}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.muted} />
               </TouchableOpacity>
             ))
