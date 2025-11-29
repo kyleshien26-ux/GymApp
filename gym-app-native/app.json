@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "GymApp",
+    "slug": "gym-app-native",
+    "scheme": "gymapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "jsEngine": "jsc",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
