@@ -1,99 +1,59 @@
 # GymApp
 
-A React Native fitness tracking application built with Expo and TypeScript.
+A simple iOS fitness tracking app built with React Native and Expo.
+
+## What it does
+
+Track your workouts, monitor progress, and manage exercise routines. Built specifically for iOS devices.
 
 ## Features
 
-- 📱 Cross-platform mobile app (iOS/Android)
-- 🏋️ Workout tracking and logging
-- 📊 Progress monitoring
-- 📋 Exercise templates
-- 🤖 AI-powered workout plans
-- 📈 Personal records tracking
-- 📏 Body measurements
-- 📚 Workout history
+- Workout logging and tracking
+- Progress monitoring over time
+- Custom exercise templates
+- AI workout plan suggestions
+- Personal records tracking
+- Body measurements
+- Workout history
 
-## Tech Stack
+## Built with
 
-- **React Native** 0.81.5
-- **Expo** SDK 54
-- **TypeScript**
-- **Expo Router** for navigation
-- **React Native Screens**
+- React Native 0.81.5
+- Expo SDK 54
+- TypeScript
+- Expo Router for navigation
 
-## Getting Started
+## Setup
 
-### Prerequisites
+You'll need Node.js and Expo CLI installed.
 
-- Node.js (14 or later)
-- npm or yarn
-- Expo CLI
-- Expo Go app (for testing on device)
-
-### Installation
-
-1. Clone the repository:
-\`\`\`bash
-git clone <your-repo-url>
-cd GymApp
-\`\`\`
-
-2. Navigate to the app directory:
-\`\`\`bash
-cd gym-app-native
-\`\`\`
-
-3. Install dependencies:
-\`\`\`bash
+```bash
+git clone https://github.com/kyleshien26-ux/GymApp.git
+cd GymApp/gym-app-native
 npm install
-\`\`\`
-
-4. Start the development server:
-\`\`\`bash
 npx expo start
-\`\`\`
+```
+
+Use the Expo Go app on your iPhone to scan the QR code and test the app.
 
 ## Project Structure
 
-\`\`\`
+```
 gym-app-native/
-├── app/                    # Main application code
-│   ├── (tabs)/            # Tab-based navigation screens
-│   │   ├── index.tsx      # Home/Dashboard
-│   │   ├── workouts.tsx   # Workouts screen
-│   │   ├── progress.tsx   # Progress tracking
-│   │   ├── templates.tsx  # Workout templates
-│   │   ├── ai-plan.tsx    # AI workout plans
-│   │   └── profile.tsx    # User profile
-│   ├── exercises/         # Exercise-related screens
+├── app/                    
+│   ├── (tabs)/            # Main app tabs
+│   ├── exercises/         # Exercise screens
 │   ├── history/           # Workout history
 │   ├── log-workout/       # Workout logging
-│   ├── measurements/      # Body measurements
-│   ├── records/           # Personal records
 │   └── templates/         # Template management
-├── components/            # Reusable components
-└── types/                # TypeScript definitions
-\`\`\`
+└── components/            # Shared components
+```
 
-## Available Scripts
+## Running the app
 
-- \`npm start\` - Start the Expo development server
-- \`npm run android\` - Run on Android device/emulator
-- \`npm run ios\` - Run on iOS device/simulator
-- \`npm run web\` - Run in web browser
+- `npm start` - Start development server
+- `npm run ios` - Run on iOS simulator
 
-## Known Issues
+## Notes
 
-- ReactFabric boolean/string type error in Expo Go (does not affect functionality)
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (\`git checkout -b feature/AmazingFeature\`)
-3. Commit your changes (\`git commit -m 'Add some AmazingFeature'\`)
-4. Push to the branch (\`git push origin feature/AmazingFeature\`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+There's a known ReactFabric error in Expo Go that doesn't affect the app's functionality. The web version works fine for development.
