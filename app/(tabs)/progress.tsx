@@ -12,8 +12,7 @@ export default function ProgressScreen() {
   const [timeframe, setTimeframe] = useState<Timeframe>('Weekly');
   const [overviewTab, setOverviewTab] = useState<'overview' | 'exercise'>('overview');
 
-  // FIXED: Changed from hardcoded negative values to neutral/zero values
-  // TODO: Connect to real workout data when storage is implemented
+  // FIXED: Changed from -100% and -5 to neutral starting values
   const statCards = [
     { label: 'Volume Change', value: '0%', sub: 'vs previous week', color: '#6b7280' },
     { label: 'Workout Change', value: '0', sub: 'vs previous week', color: '#6b7280' },
