@@ -33,7 +33,7 @@ export default function History() {
             <TouchableOpacity
               key={workout.id}
               style={styles.card}
-              onPress={() => router.push('/log-workout')}
+              onPress={() => router.push(`/history/detail?id=${workout.id}`)}
               activeOpacity={0.85}
             >
               <View style={styles.row}>

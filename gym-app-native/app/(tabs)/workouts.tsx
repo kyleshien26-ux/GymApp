@@ -2,18 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
-const BORDER = '#e5e7eb';
-const MUTED = '#475467';
-const PRIMARY = '#2563ff';
+import { colors } from '../../constants/colors';
+import { useWorkouts, formatDateLabel, formatDuration } from '../../providers/WorkoutsProvider';
 
 export default function WorkoutsScreen() {
   const router = useRouter();
-
-  const recentWorkouts = [
-    { id: 1, name: 'Push Day', date: 'Sunday, Nov 9, 2025', duration: '1 min', volume: '2140 kg', sets: 6 },
-    { id: 2, name: 'Pull Day', date: 'Sunday, Nov 9, 2025', duration: '0', volume: '0 kg', sets: 0 },
-  ];
+  const { workouts } = useWorkouts();
 
   return (
     <View style={styles.container}>
@@ -29,44 +23,43 @@ export default function WorkoutsScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Recent Workouts</Text>
-        {recentWorkouts.map((workout) => (
+        {workouts.map((workout) => (
           <View key={workout.id} style={styles.workoutCard}>
             <View style={styles.rowTop}>
-              <Text style={styles.workoutDate}>{workout.date}</Text>
-              <Ionicons name="chevron-down" size={18} color="#94a3b8" />
+              <Text style={styles.workoutDate}>{formatDateLabel(workout.performedAt)}</Text>
+              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color={MUTED} /> {workout.duration}
+                <Ionicons name="time-outline" size={14} color={colors.muted} /> {formatDuration(workout.durationMinutes)}
               </Text>
               <Text style={styles.metaItem}>
-                <Ionicons name="stats-chart" size={14} color={MUTED} /> {workout.volume}
+                <Ionicons name="stats-chart" size={14} color={colors.muted} /> {formatNumber(workout.totalVolume)} kg
               </Text>
               <Text style={styles.metaItem}>
-                <Ionicons name="barbell-outline" size={14} color={MUTED} /> {workout.sets} sets
+                <Ionicons name="barbell-outline" size={14} color={colors.muted} /> {workout.totalSets} sets
               </Text>
             </View>
 
-            <View style={styles.exerciseBlock}>
-              <Text style={styles.exerciseName}>{workout.name}</Text>
-              <View style={styles.setList}>
-                <View style={styles.setRow}>
-                  <Text style={styles.setLabel}>Set 1</Text>
-                  <Text style={styles.setValue}>60 kg x 6 reps</Text>
-                </View>
-                <View style={styles.setRow}>
-                  <Text style={styles.setLabel}>Set 2</Text>
-                  <Text style={styles.setValue}>60 kg x 5 reps</Text>
+            {workout.exercises.map((ex) => (
+              <View key={ex.id} style={styles.exerciseBlock}>
+                <Text style={styles.exerciseName}>{ex.name}</Text>
+                <View style={styles.setList}>
+                  {ex.sets.map((set, idx) => (
+                    <View key={set.id} style={styles.setRow}>
+                      <Text style={styles.setLabel}>Set {idx + 1}</Text>
+                      <Text style={styles.setValue}>{set.weight} kg x {set.reps} reps</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
-            </View>
-
-            <TouchableOpacity style={styles.deleteRow}>
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
+            ))}
           </View>
         ))}
+
+        {!workouts.length && (
+          <Text style={styles.emptyText}>No workouts yet. Log your first session.</Text>
+        )}
 
         <TouchableOpacity
           style={styles.dashedButton}
@@ -78,6 +71,10 @@ export default function WorkoutsScreen() {
       </ScrollView>
     </View>
   );
+}
+
+function formatNumber(num: number) {
+  return new Intl.NumberFormat().format(Math.round(num));
 }
 
 const styles = StyleSheet.create({
@@ -104,7 +101,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: PRIMARY,
+    backgroundColor: '#2563ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -119,7 +116,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#e5e7eb',
     marginBottom: 12,
   },
   rowTop: {
@@ -140,11 +137,11 @@ const styles = StyleSheet.create({
   },
   metaItem: {
     fontSize: 13,
-    color: MUTED,
+    color: '#475467',
   },
   exerciseBlock: {
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#e5e7eb',
     borderRadius: 12,
     padding: 12,
     backgroundColor: '#f8fafc',
@@ -165,31 +162,21 @@ const styles = StyleSheet.create({
   },
   setLabel: {
     fontSize: 13,
-    color: MUTED,
+    color: '#475467',
   },
   setValue: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
   },
-  deleteRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-  },
-  deleteText: {
-    color: '#ef4444',
-    fontWeight: '700',
-    fontSize: 13,
+  emptyText: {
+    color: '#475467',
+    marginBottom: 12,
   },
   dashedButton: {
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: BORDER,
+    borderColor: '#e5e7eb',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

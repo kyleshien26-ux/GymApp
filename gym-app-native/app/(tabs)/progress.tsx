@@ -1,86 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getAllWorkouts, getAllRecords, getDateRange, calculateTotalVolume, getWorkoutsByDateRange } from '@/lib/storage';
-import { Workout, ProgressStats } from '@/types/workout';
-
-const PRIMARY = '#2563ff';
-const BORDER = '#e5e7eb';
-const MUTED = '#6b7280';
+import { useWorkouts, formatDateLabel } from '../../providers/WorkoutsProvider';
+import { colors } from '../../constants/colors';
+import { Workout } from '../../types/workouts';
 
 type Timeframe = 'Weekly' | 'Monthly' | 'Yearly';
 
 export default function ProgressScreen() {
+  const { workouts } = useWorkouts();
   const [timeframe, setTimeframe] = useState<Timeframe>('Weekly');
   const [overviewTab, setOverviewTab] = useState<'overview' | 'exercise'>('overview');
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [stats, setStats] = useState<ProgressStats>({
-    volumeChange: 0,
-    workoutChange: 0,
-    currentVolume: 0,
-    previousVolume: 0,
-    currentWorkouts: 0,
-    previousWorkouts: 0
-  });
-  const [loading, setLoading] = useState(true);
 
-  const loadData = () => {
-    setLoading(true);
-    try {
-      const allWorkouts = getAllWorkouts();
-      setWorkouts(allWorkouts);
-      
-      const timeframeStats = getTimeframeStats(timeframe);
-      setStats(timeframeStats);
-    } catch (error) {
-      console.error('Error loading workout data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getTimeframeStats = (timeframe: Timeframe): ProgressStats => {
-    const { currentPeriodStart, currentPeriodEnd, previousPeriodStart, previousPeriodEnd } = getDateRange(timeframe);
-    
-    const currentWorkouts = getWorkoutsByDateRange(currentPeriodStart, currentPeriodEnd);
-    const previousWorkouts = getWorkoutsByDateRange(previousPeriodStart, previousPeriodEnd);
-    
-    const currentVolume = calculateTotalVolume(currentWorkouts);
-    const previousVolume = calculateTotalVolume(previousWorkouts);
-    
-    // Fix division by zero bug
-    const volumeChange = previousVolume === 0 
-      ? (currentVolume > 0 ? 100 : 0)
-      : Math.round(((currentVolume - previousVolume) / previousVolume) * 100);
-    
-    const workoutChange = currentWorkouts.length - previousWorkouts.length;
-    
-    return {
-      volumeChange,
-      workoutChange,
-      currentVolume,
-      previousVolume,
-      currentWorkouts: currentWorkouts.length,
-      previousWorkouts: previousWorkouts.length
-    };
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [timeframe]);
+  const progress = useMemo(() => buildProgress(workouts, timeframe), [workouts, timeframe]);
 
   const statCards = [
-    { 
-      label: 'Volume Change', 
-      value: loading ? '...' : `${stats.volumeChange > 0 ? '+' : ''}${stats.volumeChange}%`, 
-      sub: `vs previous ${timeframe.toLowerCase().slice(0, -2)}`, 
-      color: stats.volumeChange >= 0 ? '#10b981' : '#ef4444' 
+    {
+      label: 'Volume Change',
+      value: formatDelta(progress.volumeDeltaPercent, '%'),
+      sub: `vs previous ${timeframe.toLowerCase()}`,
+      color: progress.volumeDeltaPercent >= 0 ? colors.primary : colors.danger,
     },
-    { 
-      label: 'Workout Change', 
-      value: loading ? '...' : `${stats.workoutChange > 0 ? '+' : ''}${stats.workoutChange}`, 
-      sub: `vs previous ${timeframe.toLowerCase().slice(0, -2)}`, 
-      color: stats.workoutChange >= 0 ? '#10b981' : '#ef4444' 
+    {
+      label: 'Workout Change',
+      value: formatDelta(progress.workoutDelta, ''),
+      sub: `vs previous ${timeframe.toLowerCase()}`,
+      color: progress.workoutDelta >= 0 ? colors.primary : colors.danger,
     },
   ];
 
@@ -144,37 +89,101 @@ export default function ProgressScreen() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Weekly Volume Trend</Text>
-            <Ionicons name="bar-chart" size={20} color={PRIMARY} />
+            <Text style={styles.cardTitle}>{timeframe} Volume</Text>
+            <Ionicons name="bar-chart" size={20} color={colors.primary} />
           </View>
-          <View style={styles.chartPlaceholder}>
-            <View style={styles.bar} />
-            <View style={[styles.bar, { height: 70 }]} />
-            <View style={[styles.bar, { height: 120 }]} />
-            <View style={[styles.bar, { height: 40 }]} />
-          </View>
+          <Text style={styles.chartLabel}>
+            {progress.current.count} workouts • {formatNumber(progress.current.volume)} kg total
+          </Text>
+          <Text style={styles.chartLabel}>
+            Prev: {progress.previous.count} • {formatNumber(progress.previous.volume)} kg
+          </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Personal Records</Text>
-          <View style={styles.prRow}>
-            <View>
-              <Text style={styles.prLabel}>Pull-ups</Text>
-              <Text style={styles.prSub}>Nov 9, 2025</Text>
+          <Text style={styles.cardTitle}>Recent Workouts</Text>
+          {progress.recent.map((w) => (
+            <View key={w.id} style={styles.workoutRow}>
+              <View>
+                <Text style={styles.workoutTitle}>{w.title}</Text>
+                <Text style={styles.workoutSubtitle}>
+                  {formatDateLabel(w.performedAt)} • {w.totalSets} sets • {formatNumber(w.totalVolume)} kg
+                </Text>
+              </View>
+              <Text style={styles.workoutDuration}>{w.durationMinutes} min</Text>
             </View>
-            <View style={styles.prValueContainer}>
-              <Text style={styles.prValue}>72</Text>
-              <Text style={styles.prUnit}>kg (1RM)</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.linkRow}>
-            <Text style={styles.link}>60 kg x 6 reps</Text>
-            <Ionicons name="chevron-forward" size={16} color={PRIMARY} />
-          </TouchableOpacity>
+          ))}
+          {!progress.recent.length && (
+            <Text style={styles.emptyText}>No workouts yet. Log a session to see progress.</Text>
+          )}
         </View>
       </ScrollView>
     </View>
   );
+}
+
+function getRange(timeframe: Timeframe) {
+  const now = Date.now();
+  let currentStart = now;
+  let prevStart = now;
+  switch (timeframe) {
+    case 'Weekly':
+      currentStart = now - 7 * 24 * 60 * 60 * 1000;
+      prevStart = now - 14 * 24 * 60 * 60 * 1000;
+      break;
+    case 'Monthly': {
+      const d = new Date(now);
+      const c = new Date(d);
+      c.setMonth(d.getMonth() - 1);
+      currentStart = c.getTime();
+      const p = new Date(d);
+      p.setMonth(d.getMonth() - 2);
+      prevStart = p.getTime();
+      break;
+    }
+    case 'Yearly': {
+      const d = new Date(now);
+      const c = new Date(d);
+      c.setFullYear(d.getFullYear() - 1);
+      currentStart = c.getTime();
+      const p = new Date(d);
+      p.setFullYear(d.getFullYear() - 2);
+      prevStart = p.getTime();
+      break;
+    }
+  }
+  return { now, currentStart, prevStart };
+}
+
+function buildProgress(workouts: Workout[], timeframe: Timeframe) {
+  const { now, currentStart, prevStart } = getRange(timeframe);
+  const current = workouts.filter((w) => w.performedAt >= currentStart && w.performedAt <= now);
+  const previous = workouts.filter((w) => w.performedAt >= prevStart && w.performedAt < currentStart);
+
+  const currentVolume = current.reduce((acc, w) => acc + w.totalVolume, 0);
+  const previousVolume = previous.reduce((acc, w) => acc + w.totalVolume, 0);
+
+  const volumeDelta = currentVolume - previousVolume;
+  const volumeDeltaPercent = previousVolume === 0 ? (currentVolume > 0 ? 100 : 0) : Math.round((volumeDelta / previousVolume) * 100);
+  const workoutDelta = current.length - previous.length;
+
+  return {
+    current: { count: current.length, volume: currentVolume },
+    previous: { count: previous.length, volume: previousVolume },
+    volumeDelta,
+    volumeDeltaPercent,
+    workoutDelta,
+    recent: workouts.slice(0, 5),
+  };
+}
+
+function formatDelta(value: number, suffix: string) {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value}${suffix}`;
+}
+
+function formatNumber(num: number) {
+  return new Intl.NumberFormat().format(Math.round(num));
 }
 
 const styles = StyleSheet.create({
@@ -222,10 +231,10 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 15,
     fontWeight: '600',
-    color: MUTED,
+    color: '#6b7280',
   },
   segmentTextActive: {
-    color: PRIMARY,
+    color: '#2563ff',
   },
   statsRow: {
     flexDirection: 'row',
@@ -238,11 +247,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#e5e7eb',
   },
   statLabel: {
     fontSize: 13,
-    color: MUTED,
+    color: '#6b7280',
     marginBottom: 8,
     fontWeight: '600',
   },
@@ -253,7 +262,7 @@ const styles = StyleSheet.create({
   },
   statSub: {
     fontSize: 12,
-    color: MUTED,
+    color: '#6b7280',
   },
   tabPills: {
     flexDirection: 'row',
@@ -268,21 +277,21 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     backgroundColor: '#e5edff',
-    borderColor: PRIMARY,
+    borderColor: '#2563ff',
   },
   pillText: {
     fontSize: 14,
-    color: MUTED,
+    color: '#6b7280',
     fontWeight: '600',
   },
   pillTextActive: {
-    color: PRIMARY,
+    color: '#2563ff',
   },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#e5e7eb',
     padding: 16,
     marginBottom: 14,
   },
@@ -297,56 +306,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
-  chartPlaceholder: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 160,
-    paddingHorizontal: 10,
+  chartLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
   },
-  bar: {
-    flex: 1,
-    marginHorizontal: 6,
-    backgroundColor: PRIMARY,
-    height: 90,
-    borderRadius: 8,
-  },
-  prRow: {
+  workoutRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  prLabel: {
+  workoutTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0f172a',
   },
-  prSub: {
+  workoutSubtitle: {
     fontSize: 12,
-    color: MUTED,
+    color: '#6b7280',
     marginTop: 2,
   },
-  prValueContainer: {
-    alignItems: 'flex-end',
-  },
-  prValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  prUnit: {
-    fontSize: 12,
-    color: MUTED,
-  },
-  linkRow: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  link: {
-    color: PRIMARY,
-    fontWeight: '700',
+  workoutDuration: {
     fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 10,
+  },
+  emptyText: {
+    marginTop: 8,
+    color: '#6b7280',
   },
 });

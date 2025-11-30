@@ -306,7 +306,13 @@ async function readStore(): Promise<Workout[]> {
     } catch {}
   }
 
-  const validated = validateWorkouts(raw);
+  let validated = validateWorkouts(raw);
+
+  // Seed with defaults if nothing exists to give the app meaningful initial state.
+  if (!validated.length) {
+    validated = seedWorkouts;
+  }
+
   await writeStore(validated);
   return validated;
 }
@@ -393,4 +399,94 @@ export function formatDuration(min: number) {
 
 export function getRecentWorkouts(w: Workout[], limit = 3) {
   return [...w].sort((a, b) => b.performedAt - a.performedAt).slice(0, limit);
+}
+
+/* ----------------------------------------------------
+   Seed data (used when storage is empty)
+----------------------------------------------------- */
+
+const seedWorkouts: Workout[] = createSeedWorkouts();
+
+function createSeedWorkouts(): Workout[] {
+  const seeds = [
+    {
+      title: 'Push Day',
+      performedAt: new Date('2024-11-28').getTime(),
+      durationMinutes: 75,
+      exercises: [
+        {
+          name: 'Bench Press',
+          sets: [
+            { reps: 10, weight: 135 },
+            { reps: 8, weight: 145 },
+            { reps: 6, weight: 155 },
+          ],
+        },
+        {
+          name: 'Shoulder Press',
+          sets: [
+            { reps: 12, weight: 65 },
+            { reps: 10, weight: 70 },
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Pull Day',
+      performedAt: new Date('2024-11-26').getTime(),
+      durationMinutes: 60,
+      exercises: [
+        {
+          name: 'Deadlift',
+          sets: [
+            { reps: 5, weight: 225 },
+            { reps: 5, weight: 245 },
+            { reps: 3, weight: 265 },
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Leg Day',
+      performedAt: new Date('2024-11-21').getTime(),
+      durationMinutes: 90,
+      exercises: [
+        {
+          name: 'Squat',
+          sets: [
+            { reps: 8, weight: 185 },
+            { reps: 6, weight: 205 },
+            { reps: 4, weight: 225 },
+          ],
+        },
+      ],
+    },
+  ];
+
+  return seeds.map((seed, idx) => {
+    const exercises: ExerciseEntry[] = seed.exercises.map((ex, exIdx) => {
+      const sets = ex.sets.map((set, setIdx) => ({
+        id: `seed-set-${idx}-${exIdx}-${setIdx}`,
+        weight: set.weight,
+        reps: set.reps,
+        completed: true,
+      }));
+      return {
+        id: `seed-ex-${idx}-${exIdx}`,
+        name: ex.name,
+        sets,
+      };
+    });
+    const totals = calculateTotals(exercises);
+    return {
+      id: `seed-${idx}-${seed.performedAt}`,
+      title: seed.title,
+      performedAt: seed.performedAt,
+      startedAt: seed.performedAt,
+      durationMinutes: seed.durationMinutes,
+      totalSets: totals.totalSets,
+      totalVolume: totals.totalVolume,
+      exercises,
+    };
+  });
 }
