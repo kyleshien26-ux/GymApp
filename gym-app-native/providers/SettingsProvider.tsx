@@ -318,27 +318,74 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const exportData = useCallback(async (): Promise<string> => {
     const workoutsData = await AsyncStorage.getItem('@gymapp/workouts');
-    const templatesData = await AsyncStorage.getItem('@gymapp/templates');
-    return JSON.stringify({
-      settings,
-      workouts: workoutsData ? JSON.parse(workoutsData) : [],
-      templates: templatesData ? JSON.parse(templatesData) : [],
-      exportedAt: Date.now(),
-    }, null, 2);
+    const workouts = workoutsData ? JSON.parse(workoutsData) : [];
+    
+    // CSV format for IB IA requirement
+    let csv = 'Date,Workout,Exercise,Set,Weight,Reps,RPE\n';
+    
+    workouts.forEach((w: any) => {
+      const date = new Date(w.performedAt).toISOString().split('T')[0];
+      const title = (w.title || 'Workout').replace(/,/g, ' ');
+      w.exercises?.forEach((ex: any) => {
+        const name = (ex.name || '').replace(/,/g, ' ');
+        ex.sets?.forEach((s: any, i: number) => {
+          csv += [date, title, name, i+1, s.weight||0, s.reps||0, s.rpe||''].join(',') + '\n';
+        });
+      });
+    });
+    return csv;
   }, [settings]);
 
-  const importData = useCallback(async (json: string): Promise<boolean> => {
+  const importData = useCallback(async (csvOrJson: string): Promise<boolean> => {
     try {
-      const data = JSON.parse(json);
-      if (data.settings) {
-        await saveSettings({ ...defaultSettings, ...data.settings });
+      const trimmed = csvOrJson.trim();
+      
+      // Handle JSON (backwards compatible)
+      if (trimmed.startsWith('{')) {
+        const data = JSON.parse(trimmed);
+        if (data.settings) await saveSettings({ ...defaultSettings, ...data.settings });
+        if (data.workouts) await AsyncStorage.setItem('@gymapp/workouts', JSON.stringify(data.workouts));
+        if (data.templates) await AsyncStorage.setItem('@gymapp/templates', JSON.stringify(data.templates));
+        return true;
       }
-      if (data.workouts) {
-        await AsyncStorage.setItem('@gymapp/workouts', JSON.stringify(data.workouts));
+      
+      // Handle CSV
+      const lines = trimmed.split('\n');
+      if (lines.length < 2) return false;
+      
+      const workoutMap: Record<string, any> = {};
+      
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 6) continue;
+        
+        const [date, title, exercise, setNum, weight, reps, rpe] = cols;
+        const key = date + '|' + title;
+        
+        if (!workoutMap[key]) {
+          workoutMap[key] = {
+            id: 'w-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+            title: title || 'Workout',
+            performedAt: new Date(date).getTime() || Date.now(),
+            durationMinutes: 60,
+            exercises: [],
+            totalVolume: 0
+          };
+        }
+        
+        let ex = workoutMap[key].exercises.find((e: any) => e.name === exercise);
+        if (!ex) {
+          ex = { name: exercise || 'Exercise', sets: [] };
+          workoutMap[key].exercises.push(ex);
+        }
+        
+        const w = parseFloat(weight) || 0;
+        const r = parseInt(reps) || 0;
+        ex.sets.push({ weight: w, reps: r, rpe: rpe ? parseFloat(rpe) : undefined });
+        workoutMap[key].totalVolume += w * r;
       }
-      if (data.templates) {
-        await AsyncStorage.setItem('@gymapp/templates', JSON.stringify(data.templates));
-      }
+      
+      await AsyncStorage.setItem('@gymapp/workouts', JSON.stringify(Object.values(workoutMap)));
       return true;
     } catch {
       return false;

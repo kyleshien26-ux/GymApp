@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useWorkouts, formatDateLabel } from '../../providers/WorkoutsProvider';
 import { colors } from '../../constants/colors';
 import { Workout } from '../../types/workouts';
+import { getAllInsights, calculateMuscleBalance, classifyTrainingAge } from '../../lib/training-intelligence';
 
 type Timeframe = 'Weekly' | 'Monthly' | 'Yearly';
 
@@ -13,6 +14,9 @@ export default function ProgressScreen() {
   const [overviewTab, setOverviewTab] = useState<'overview' | 'exercise'>('overview');
 
   const progress = useMemo(() => buildProgress(workouts, timeframe), [workouts, timeframe]);
+  const insights = useMemo(() => getAllInsights(workouts), [workouts]);
+  const muscleBalance = useMemo(() => calculateMuscleBalance(workouts), [workouts]);
+  const trainingAge = useMemo(() => classifyTrainingAge(workouts), [workouts]);
 
   const statCards = [
     {

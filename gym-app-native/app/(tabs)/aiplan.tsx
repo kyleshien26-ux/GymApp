@@ -92,7 +92,7 @@ export default function AiPlan() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>AI Workout Planner</Text>
+          <Text style={styles.title}>Smart Workout Planner</Text>
           <Text style={styles.subtitle}>Generate personalized workout plans with history-aware rules</Text>
         </View>
 

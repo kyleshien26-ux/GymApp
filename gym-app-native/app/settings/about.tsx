@@ -110,10 +110,7 @@ export default function About() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkButton}
-            onPress={() => openLink('https://twitter.com/kyleshien26')}
           >
-            <Ionicons name="logo-twitter" size={20} color={colors.primary} />
-            <Text style={styles.linkText}>Follow on Twitter</Text>
             <Ionicons name="open-outline" size={16} color={colors.muted} />
           </TouchableOpacity>
         </View>

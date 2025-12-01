@@ -205,6 +205,9 @@ export default function LogWorkout() {
       </Modal>
 
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{padding: 8, marginRight: 8}}>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <View>
           <Text style={styles.title}>Log Workout</Text>
           <Text style={styles.subtitle}>Track your training session</Text>

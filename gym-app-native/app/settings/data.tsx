@@ -37,9 +37,9 @@ export default function DataManagement() {
   const handleExportData = async () => {
     setIsExporting(true);
     try {
-      const json = await exportData();
+      const csv = await exportData();
       await Share.share({
-        message: json,
+        message: csv,
         title: 'GymApp Backup',
       });
     } catch (error) {
@@ -53,7 +53,7 @@ export default function DataManagement() {
     setIsImporting(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
+        type: 'text/csv',
         copyToCacheDirectory: true,
       });
 
@@ -183,7 +183,7 @@ export default function DataManagement() {
             )}
             <View style={styles.actionContent}>
               <Text style={styles.actionLabel}>Export Data</Text>
-              <Text style={styles.actionDescription}>Save workout data as JSON</Text>
+              <Text style={styles.actionDescription}>Save workout data as CSV</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>

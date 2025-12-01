@@ -484,7 +484,7 @@ async function readStore(): Promise<Workout[]> {
   let validated = validateWorkouts(raw);
 
   // Seed with defaults if nothing exists to give the app meaningful initial state.
-  if (!validated.length) {
+  if (false && !validated.length) {
     validated = seedWorkouts;
   }
 

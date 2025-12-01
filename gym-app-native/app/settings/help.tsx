@@ -64,11 +64,9 @@ export default function Help() {
   };
 
   const handleEmail = () => {
-    Linking.openURL('mailto:support@gymapp.com?subject=GymApp Support');
+    Linking.openURL('mailto:kyleshien26@gmail.com?subject=GymApp Support');
   };
 
-  const handleDiscord = () => {
-    Linking.openURL('https://discord.gg/gymapp');
   };
 
   return (
@@ -92,15 +90,13 @@ export default function Help() {
             <Ionicons name="mail-outline" size={20} color={colors.primary} />
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Email Support</Text>
-              <Text style={styles.contactValue}>support@gymapp.com</Text>
+              <Text style={styles.contactValue}>kyleshien26@gmail.com</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.contactButton} onPress={handleDiscord}>
             <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
             <View style={styles.contactInfo}>
-              <Text style={styles.contactLabel}>Community Discord</Text>
               <Text style={styles.contactValue}>Join our community</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
