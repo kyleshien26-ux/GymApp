@@ -6,28 +6,42 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { calculateTotals, useWorkouts } from '../../providers/WorkoutsProvider';
-import { ExerciseEntry, SetEntry } from '../../types/workouts';
+import { useSettings } from '../../providers/SettingsProvider';
+import { ExerciseEntry, SetEntry, Template } from '../../types/workouts';
+import { ExercisePicker } from '../../components/ExercisePicker';
+import { RestTimer } from '../../components/RestTimer';
+import type { Exercise } from '../../constants/exercises';
 
 export default function LogWorkout() {
   const router = useRouter();
-  const { addWorkout } = useWorkouts();
+  const { addWorkout, addTemplate } = useWorkouts();
+  const { settings } = useSettings();
   const startedAt = useRef(Date.now());
 
   const [workoutTitle, setWorkoutTitle] = useState("Today's Session");
-  const [exercises, setExercises] = useState<ExerciseEntry[]>([
-    createExercise('Bench Press'),
-  ]);
+  const [exercises, setExercises] = useState<ExerciseEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDesc, setTemplateDesc] = useState('');
+  const [timerVisible, setTimerVisible] = useState(false);
 
   const totals = useMemo(() => calculateTotals(exercises), [exercises]);
 
+  const handleSelectExercise = (exercise: Exercise) => {
+    setExercises((prev) => [...prev, createExercise(exercise.name)]);
+  };
+
   const handleAddExercise = () => {
-    setExercises((prev) => [...prev, createExercise(`Exercise ${prev.length + 1}`)]);
+    setPickerVisible(true);
   };
 
   const handleRemoveExercise = (id: string) => {
@@ -81,19 +95,132 @@ export default function LogWorkout() {
     }
 
     setError(null);
+    setTemplateName(workoutTitle);
+    setShowSaveTemplate(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      Alert.alert('Template name required', 'Please enter a name for this template');
+      return;
+    }
+
+    const template: Template = {
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: templateName,
+      description: templateDesc,
+      exercises,
+    };
+
+    await addTemplate(template);
+    setShowSaveTemplate(false);
+    setTemplateName('');
+    setTemplateDesc('');
     router.push('/history');
   };
 
   return (
     <View style={styles.container}>
+      <ExercisePicker
+        visible={pickerVisible}
+        onSelectExercise={handleSelectExercise}
+        onClose={() => setPickerVisible(false)}
+      />
+
+      <RestTimer
+        visible={timerVisible}
+        initialSeconds={settings.preferences.defaultRestTimer}
+        onDismiss={() => setTimerVisible(false)}
+      />
+
+      <Modal
+        visible={showSaveTemplate}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSaveTemplate(false);
+          router.push('/history');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Save as Template?</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSaveTemplate(false);
+                  router.push('/history');
+                }}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Save this workout as a template for quick future logging
+            </Text>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.modalInputLabel}>Template Name</Text>
+              <TextInput
+                style={styles.templateInput}
+                value={templateName}
+                onChangeText={setTemplateName}
+                placeholder="e.g., Push Day"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.modalInputLabel}>Description (Optional)</Text>
+              <TextInput
+                style={[styles.templateInput, styles.descriptionInput]}
+                value={templateDesc}
+                onChangeText={setTemplateDesc}
+                placeholder="Add notes about this template..."
+                placeholderTextColor={colors.muted}
+                multiline
+              />
+            </View>
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => {
+                  setShowSaveTemplate(false);
+                  router.push('/history');
+                }}
+              >
+                <Text style={styles.modalSecondaryButtonText}>Skip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={handleSaveTemplate}
+              >
+                <Text style={styles.modalPrimaryButtonText}>Save Template</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Log Workout</Text>
           <Text style={styles.subtitle}>Track your training session</Text>
         </View>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.timerButton}
+            onPress={() => setTimerVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="timer-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -200,6 +327,7 @@ function createSet(order: number): SetEntry {
     id: `set-${Date.now()}-${order}-${Math.random().toString(36).slice(2, 5)}`,
     weight: 0,
     reps: 0,
+    completed: false,
   };
 }
 
@@ -247,6 +375,21 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     paddingHorizontal: 20,
@@ -404,5 +547,87 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     marginBottom: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.muted,
+    marginBottom: 20,
+  },
+  inputSection: {
+    marginBottom: 16,
+  },
+  modalInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  templateInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    color: colors.text,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  descriptionInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalPrimaryButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  modalPrimaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

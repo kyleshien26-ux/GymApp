@@ -1,17 +1,29 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useWorkouts } from '../../providers/WorkoutsProvider';
+import { useSettings } from '../../providers/SettingsProvider';
 
 export default function ProfileScreen() {
-  const { clearStore, loading } = useWorkouts();
+  const router = useRouter();
+  const { clearStore, loading, workouts } = useWorkouts();
+  const { settings } = useSettings();
 
-  const stats = [
-    { label: 'Workouts', value: '47' },
-    { label: 'Streak', value: '8 days' },
-    { label: 'Weight', value: '75 kg' },
-  ];
+  const stats = useMemo(() => {
+    const workoutStats = workouts.reduce((acc, w) => {
+      acc.totalVolume += w.totalVolume;
+      acc.totalSets += w.totalSets;
+      return acc;
+    }, { totalVolume: 0, totalSets: 0 });
+
+    return [
+      { label: 'Workouts', value: String(workouts.length) },
+      { label: 'Streak', value: `${settings.streak || 0} days` },
+      { label: 'Weight', value: `${settings.profile.weight || 0} kg` },
+    ];
+  }, [workouts, settings]);
 
   const menuItems = [
     { icon: 'person-outline', label: 'Profile Settings' },
@@ -20,6 +32,47 @@ export default function ProfileScreen() {
     { icon: 'help-circle-outline', label: 'Help & Support' },
     { icon: 'information-circle-outline', label: 'About' },
   ];
+
+  const trackingItems = [
+    { icon: 'scale-outline', label: 'Measurements' },
+    { icon: 'trophy-outline', label: 'Records' },
+  ];
+
+  const handleMeasurements = () => {
+    router.push('/measurements');
+  };
+
+  const handleRecords = () => {
+    router.push('/records');
+  };
+
+  const handleMenuPress = (label: string) => {
+    switch (label) {
+      case 'Profile Settings':
+        router.push('/settings/profile');
+        break;
+      case 'Workout Preferences':
+        router.push('/settings/preferences');
+        break;
+      case 'Notifications':
+        router.push('/settings/notifications');
+        break;
+      case 'Help & Support':
+        router.push('/settings/help');
+        break;
+      case 'About':
+        router.push('/settings/about');
+        break;
+      case 'Measurements':
+        handleMeasurements();
+        break;
+      case 'Records':
+        handleRecords();
+        break;
+      default:
+        break;
+    }
+  };
 
   const handleReset = () => {
     Alert.alert(
@@ -48,9 +101,16 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>KS</Text>
+            <Text style={styles.avatarText}>
+              {(settings.profile.name || 'User')
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2)}
+            </Text>
           </View>
-          <Text style={styles.name}>Kyle Shien</Text>
+          <Text style={styles.name}>{settings.profile.name || 'User'}</Text>
           <Text style={styles.joinDate}>Member since November 2024</Text>
         </View>
 
@@ -63,9 +123,38 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        {settings.badges.filter(b => b.earnedAt).length > 0 && (
+          <View style={styles.badgesSection}>
+            <Text style={styles.badgesSectionTitle}>Achievements</Text>
+            <View style={styles.badgesGrid}>
+              {settings.badges
+                .filter(b => b.earnedAt)
+                .map((badge) => (
+                  <View key={badge.id} style={styles.badgeItem}>
+                    <View style={styles.badgeIcon}>
+                      <Text style={styles.badgeEmoji}>{badge.icon}</Text>
+                    </View>
+                    <Text style={styles.badgeName}>{badge.name}</Text>
+                    <Text style={styles.badgeDate}>
+                      {new Date(badge.earnedAt!).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.menuCard}>
           {menuItems.map((item) => (
-            <TouchableOpacity key={item.label} style={styles.menuItem} activeOpacity={0.85}>
+            <TouchableOpacity
+              key={item.label}
+              style={styles.menuItem}
+              activeOpacity={0.85}
+              onPress={() => handleMenuPress(item.label)}
+            >
               <View style={styles.menuLeft}>
                 <Ionicons name={item.icon as any} size={20} color={colors.primary} />
                 <Text style={styles.menuText}>{item.label}</Text>
@@ -76,10 +165,31 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menuCard}>
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.85} onPress={handleReset} disabled={loading}>
+          {trackingItems.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.menuItem}
+              activeOpacity={0.85}
+              onPress={() => handleMenuPress(item.label)}
+            >
+              <View style={styles.menuLeft}>
+                <Ionicons name={item.icon as any} size={20} color={colors.primary} />
+                <Text style={styles.menuText}>{item.label}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            activeOpacity={0.85}
+            onPress={() => router.push('/settings/data')}
+          >
             <View style={styles.menuLeft}>
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              <Text style={[styles.menuText, { color: colors.danger }]}>Reset stored workouts</Text>
+              <Ionicons name="folder-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>Data Management</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
           </TouchableOpacity>
@@ -199,5 +309,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
+  },
+  badgesSection: {
+    marginBottom: 12,
+  },
+  badgesSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  badgeItem: {
+    flex: 1,
+    minWidth: '30%',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    alignItems: 'center',
+  },
+  badgeIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff9e6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  badgeEmoji: {
+    fontSize: 28,
+  },
+  badgeName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  badgeDate: {
+    fontSize: 10,
+    color: colors.muted,
   },
 });

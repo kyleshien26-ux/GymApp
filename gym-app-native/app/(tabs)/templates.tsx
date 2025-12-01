@@ -1,42 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
-const PRIMARY = '#2563ff';
-const BORDER = '#e5e7eb';
-const MUTED = '#6b7280';
-
-type Template = {
-  id: number;
-  name: string;
-  description: string;
-  exercises: number;
-  favorite?: boolean;
-  preview: string[];
-};
+import { colors } from '../../constants/colors';
+import { useWorkouts } from '../../providers/WorkoutsProvider';
 
 export default function Templates() {
   const router = useRouter();
-
-  const templates: Template[] = [
-    {
-      id: 1,
-      name: 'Push Day',
-      description: 'Chest, shoulders, and triceps',
-      exercises: 6,
-      favorite: true,
-      preview: ['Lat Pulldown'],
-    },
-    {
-      id: 2,
-      name: 'Leg Day',
-      description: 'Complete lower body workout',
-      exercises: 6,
-      favorite: true,
-      preview: ['Back Squat', 'Leg Press'],
-    },
-  ];
+  const { templates, deleteTemplate } = useWorkouts();
 
   return (
     <View style={styles.container}>
@@ -57,50 +28,96 @@ export default function Templates() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionLabel}>Favorites</Text>
-        {templates.map((template) => (
-          <View key={template.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardTitle}>{template.name}</Text>
-                <Text style={styles.cardDescription}>{template.description}</Text>
-              </View>
-              {template.favorite ? (
-                <Ionicons name="star" size={20} color="#f59e0b" />
-              ) : null}
-            </View>
-
+        {templates.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons
+              name="document-outline"
+              size={48}
+              color={colors.muted}
+              style={{ marginBottom: 12 }}
+            />
+            <Text style={styles.emptyTitle}>No templates yet</Text>
+            <Text style={styles.emptyDescription}>
+              Create your first workout template to save time logging sessions
+            </Text>
             <TouchableOpacity
-              style={styles.exerciseLink}
-              onPress={() => router.push('/templates/picker')}
-              activeOpacity={0.85}
+              style={styles.createButton}
+              onPress={() => router.push('/templates/edit')}
             >
-              <Text style={styles.exerciseCount}>{template.exercises} exercises</Text>
+              <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.createButtonText}>Create Template</Text>
             </TouchableOpacity>
-
-            {template.preview.length ? (
-              <View style={styles.previewList}>
-                {template.preview.map((item) => (
-                  <Text key={item} style={styles.previewItem}>
-                    • {item}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => router.push('/templates/edit')}
-              >
-                <Text style={styles.secondaryButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
-                <Ionicons name="trash-outline" size={18} color={MUTED} />
-              </TouchableOpacity>
-            </View>
           </View>
-        ))}
+        ) : (
+          <>
+            <Text style={styles.sectionLabel}>Your Templates</Text>
+            {templates.map((template) => (
+              <View key={template.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View>
+                    <Text style={styles.cardTitle}>{template.name}</Text>
+                    <Text style={styles.cardDescription}>{template.description || 'No description'}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.exerciseLink}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.exerciseCount}>{template.exercises.length} exercises</Text>
+                </TouchableOpacity>
+
+                {template.exercises.length ? (
+                  <View style={styles.previewList}>
+                    {template.exercises.slice(0, 3).map((exercise) => (
+                      <Text key={exercise.id} style={styles.previewItem}>
+                        • {exercise.name}
+                      </Text>
+                    ))}
+                    {template.exercises.length > 3 && (
+                      <Text style={styles.previewItem}>
+                        • +{template.exercises.length - 3} more
+                      </Text>
+                    )}
+                  </View>
+                ) : null}
+
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => router.push({
+                      pathname: '/templates/edit',
+                      params: { templateId: template.id }
+                    })}
+                  >
+                    <Text style={styles.secondaryButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete Template',
+                        `Delete "${template.name}"?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await deleteTemplate(template.id);
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.muted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -109,7 +126,7 @@ export default function Templates() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fb',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 20,
@@ -124,33 +141,64 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: MUTED,
+    color: colors.muted,
     marginTop: 4,
   },
   addButton: {
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     width: 42,
     height: 42,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  createButton: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
     marginBottom: 10,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     marginBottom: 12,
   },
   cardHeader: {
@@ -161,19 +209,19 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   cardDescription: {
     marginTop: 4,
     fontSize: 13,
-    color: MUTED,
+    color: colors.muted,
   },
   exerciseLink: {
     marginTop: 10,
   },
   exerciseCount: {
     fontSize: 14,
-    color: PRIMARY,
+    color: colors.primary,
     fontWeight: '700',
   },
   previewList: {
@@ -181,7 +229,7 @@ const styles = StyleSheet.create({
   },
   previewItem: {
     fontSize: 13,
-    color: '#0f172a',
+    color: colors.text,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -191,7 +239,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
@@ -199,14 +247,14 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   iconButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

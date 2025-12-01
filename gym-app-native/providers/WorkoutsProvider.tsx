@@ -11,29 +11,43 @@ import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import {
   ExerciseEntry,
+  ExperienceLevel,
   Goal,
   NewWorkoutInput,
   PlanRecommendation,
   PlanResult,
+  Template,
   Workout,
 } from '../types/workouts';
 
 const STORAGE_KEY = '@gymapp/workouts';
+const TEMPLATES_KEY = '@gymapp/templates';
 const FILE_PATH = `${((FileSystem as any).documentDirectory ?? '')}workouts.json`;
+const TEMPLATES_FILE_PATH = `${((FileSystem as any).documentDirectory ?? '')}templates.json`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type WorkoutsContextValue = {
   workouts: Workout[];
+  templates: Template[];
   loading: boolean;
   addWorkout: (input: NewWorkoutInput) => Promise<Workout | null>;
+  addTemplate: (template: Template) => Promise<void>;
+  updateTemplate: (id: string, template: Partial<Template>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  useTemplateWorkout: (templateId: string) => Template | undefined;
   refresh: () => Promise<void>;
   clearStore: () => Promise<void>;
 };
 
 const WorkoutsContext = createContext<WorkoutsContextValue>({
   workouts: [],
+  templates: [],
   loading: false,
   addWorkout: async () => null,
+  addTemplate: async () => {},
+  updateTemplate: async () => {},
+  deleteTemplate: async () => {},
+  useTemplateWorkout: () => undefined,
   refresh: async () => {},
   clearStore: async () => {},
 });
@@ -42,18 +56,22 @@ const WorkoutsContext = createContext<WorkoutsContextValue>({
    Provider
 ----------------------------------------------------- */
 
-export function WorkoutsProvider({ children }: React.PropsWithChildren) {
+export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children }: React.PropsWithChildren) {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const stored = await readStore();
       setWorkouts(stored);
+      const storedTemplates = await readTemplates();
+      setTemplates(storedTemplates);
     } catch (err) {
       console.warn('Failed to load workouts', err);
       setWorkouts([]);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -72,20 +90,66 @@ export function WorkoutsProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
 
+  const persistTemplates = useCallback(async (next: Template[]) => {
+    setTemplates(next);
+    try {
+      await writeTemplates(next);
+    } catch (err) {
+      console.warn('Persist templates failed', err);
+    }
+  }, []);
+
+  const addTemplate = useCallback(
+    async (template: Template) => {
+      const next = [template, ...templates];
+      await persistTemplates(next);
+    },
+    [templates, persistTemplates],
+  );
+
+  const updateTemplate = useCallback(
+    async (id: string, updates: Partial<Template>) => {
+      const next = templates.map((t) =>
+        t.id === id ? { ...t, ...updates } : t,
+      );
+      await persistTemplates(next);
+    },
+    [templates, persistTemplates],
+  );
+
+  const deleteTemplate = useCallback(
+    async (id: string) => {
+      const next = templates.filter((t) => t.id !== id);
+      await persistTemplates(next);
+    },
+    [templates, persistTemplates],
+  );
+
+  const useTemplateWorkout = useCallback(
+    (templateId: string) => templates.find((t) => t.id === templateId),
+    [templates],
+  );
+
   const clearStore = useCallback(async () => {
     setLoading(true);
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(TEMPLATES_KEY);
       if (Platform.OS !== 'web') {
         const info = await FileSystem.getInfoAsync(FILE_PATH);
         if (info.exists) {
           await FileSystem.deleteAsync(FILE_PATH, { idempotent: true });
+        }
+        const templateInfo = await FileSystem.getInfoAsync(TEMPLATES_FILE_PATH);
+        if (templateInfo.exists) {
+          await FileSystem.deleteAsync(TEMPLATES_FILE_PATH, { idempotent: true });
         }
       }
     } catch (err) {
       console.warn('Failed to clear data', err);
     } finally {
       setWorkouts([]);
+      setTemplates([]);
       setLoading(false);
     }
   }, []);
@@ -127,8 +191,30 @@ export function WorkoutsProvider({ children }: React.PropsWithChildren) {
   );
 
   const value = useMemo(
-    () => ({ workouts, loading, addWorkout, refresh, clearStore }),
-    [workouts, loading, addWorkout, refresh, clearStore],
+    () => ({
+      workouts,
+      templates,
+      loading,
+      addWorkout,
+      addTemplate,
+      updateTemplate,
+      deleteTemplate,
+      useTemplateWorkout,
+      refresh,
+      clearStore,
+    }),
+    [
+      workouts,
+      templates,
+      loading,
+      addWorkout,
+      addTemplate,
+      updateTemplate,
+      deleteTemplate,
+      useTemplateWorkout,
+      refresh,
+      clearStore,
+    ],
   );
 
   return (
@@ -136,12 +222,91 @@ export function WorkoutsProvider({ children }: React.PropsWithChildren) {
       {children}
     </WorkoutsContext.Provider>
   );
-}
+});
 
 export function useWorkouts() {
   const ctx = useContext(WorkoutsContext);
   if (!ctx) throw new Error('useWorkouts must be used in provider');
   return ctx;
+}
+
+/* ----------------------------------------------------
+   AI Plan Generation
+----------------------------------------------------- */
+
+export function buildPlanFromHistory(
+  workouts: Workout[],
+  options: {
+    goal: Goal;
+    duration: string;
+    experience: ExperienceLevel;
+    muscles: string[];
+  }
+): PlanResult {
+  const { goal, experience, muscles } = options;
+
+  // Parse duration string to minutes
+  const durationMin = parseInt(options.duration.split('-')[0]);
+  const durationMax = parseInt(options.duration.split('-')[1]);
+  const avgDuration = (durationMin + durationMax) / 2;
+
+  // Determine plan parameters based on goal and experience
+  const goalConfig = {
+    'Strength': { reps: '3-5', rest: '3-5 min', sets: 4, sessionsPerWeek: 4 },
+    'Muscle Size': { reps: '8-12', rest: '60-90 sec', sets: 3, sessionsPerWeek: 4 },
+    'Endurance': { reps: '15-20', rest: '30-45 sec', sets: 2, sessionsPerWeek: 5 },
+    'Power': { reps: '1-3', rest: '3-5 min', sets: 3, sessionsPerWeek: 3 },
+  };
+
+  const experienceConfig = {
+    'Beginner': { multiplier: 0.8, extra: ' - Focus on form and consistency' },
+    'Intermediate': { multiplier: 1, extra: '' },
+    'Advanced': { multiplier: 1.2, extra: ' - Include advanced techniques' },
+  };
+
+  const config = goalConfig[goal];
+  const expConfig = experienceConfig[experience];
+
+  // Generate recommendations for each muscle group
+  const recommendations = muscles.map((muscle) => ({
+    focus: muscle,
+    sets: Math.ceil(config.sets * expConfig.multiplier),
+    reps: config.reps,
+    rest: config.rest,
+    rationale: `Optimal for ${goal.toLowerCase()} development${expConfig.extra.toLowerCase()}`,
+  }));
+
+  // Calculate weekly metrics
+  const totalSetsPerSession = recommendations.reduce((sum, rec) => sum + rec.sets, 0);
+  const sessionsPerWeek = config.sessionsPerWeek;
+  const weeklyVolume = Math.round((durationMax + durationMin) / 2 * sessionsPerWeek * 10);
+
+  // Generate adjustments based on history
+  const adjustments: string[] = [];
+  if (workouts.length > 0) {
+    const avgWorkoutVolume = workouts.slice(0, 10).reduce((sum, w) => sum + w.totalVolume, 0) / Math.min(workouts.length, 10);
+    if (avgWorkoutVolume > weeklyVolume * 2) {
+      adjustments.push('Your recent volume is higher than recommended - consider deloading');
+    }
+    if (muscles.length > 5) {
+      adjustments.push('Focusing on many muscle groups - ensure adequate recovery between sessions');
+    }
+  }
+
+  if (experience === 'Beginner') {
+    adjustments.push('Start with lighter weights to master movement patterns');
+  }
+
+  return {
+    sessionsPerWeek,
+    setsPerExercise: totalSetsPerSession / muscles.length,
+    repRange: config.reps,
+    restRange: config.rest,
+    weeklyVolume,
+    weeklyWorkouts: sessionsPerWeek,
+    adjustments,
+    recommendations,
+  };
 }
 
 /* ----------------------------------------------------
@@ -294,7 +459,12 @@ async function readStore(): Promise<Workout[]> {
   try {
     const str = await AsyncStorage.getItem(STORAGE_KEY);
     if (str) raw = JSON.parse(str);
-  } catch {}
+  } catch {
+    // If parsing fails, data is corrupted - clear it
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  }
 
   if (!raw && Platform.OS !== 'web') {
     try {
@@ -303,7 +473,12 @@ async function readStore(): Promise<Workout[]> {
         const str = await FileSystem.readAsStringAsync(FILE_PATH);
         raw = JSON.parse(str);
       }
-    } catch {}
+    } catch {
+      // If file parsing fails, it's corrupted - delete it
+      try {
+        await FileSystem.deleteAsync(FILE_PATH, { idempotent: true });
+      } catch {}
+    }
   }
 
   let validated = validateWorkouts(raw);
@@ -327,6 +502,81 @@ async function writeStore(list: Workout[]) {
       await FileSystem.writeAsStringAsync(FILE_PATH, json);
     } catch {}
   }
+}
+
+async function readTemplates(): Promise<Template[]> {
+  let raw: any = null;
+
+  try {
+    const str = await AsyncStorage.getItem(TEMPLATES_KEY);
+    if (str) raw = JSON.parse(str);
+  } catch {
+    try {
+      await AsyncStorage.removeItem(TEMPLATES_KEY);
+    } catch {}
+  }
+
+  if (!raw && Platform.OS !== 'web') {
+    try {
+      const info = await FileSystem.getInfoAsync(TEMPLATES_FILE_PATH);
+      if (info.exists) {
+        const str = await FileSystem.readAsStringAsync(TEMPLATES_FILE_PATH);
+        raw = JSON.parse(str);
+      }
+    } catch {
+      try {
+        await FileSystem.deleteAsync(TEMPLATES_FILE_PATH, { idempotent: true });
+      } catch {}
+    }
+  }
+
+  let validated = validateTemplates(raw);
+  await writeTemplates(validated);
+  return validated;
+}
+
+async function writeTemplates(list: Template[]) {
+  const json = JSON.stringify(list);
+  try {
+    await AsyncStorage.setItem(TEMPLATES_KEY, json);
+  } catch {}
+  if (Platform.OS !== 'web') {
+    try {
+      await FileSystem.writeAsStringAsync(TEMPLATES_FILE_PATH, json);
+    } catch {}
+  }
+}
+
+function validateTemplates(value: any): Template[] {
+  if (!Array.isArray(value)) return [];
+
+  const cleaned: Template[] = [];
+
+  for (const raw of value) {
+    const template = sanitizeTemplate(raw);
+    if (template) cleaned.push(template);
+  }
+  return cleaned;
+}
+
+function sanitizeTemplate(raw: any): Template | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const name = typeof raw.name === 'string' && raw.name.trim()
+    ? raw.name.trim()
+    : 'Untitled Template';
+
+  const exercises = sanitizeExercises(raw.exercises);
+  if (!exercises.length) return null;
+
+  const description = typeof raw.description === 'string' ? raw.description : undefined;
+
+  return {
+    id: typeof raw.id === 'string' ? raw.id : `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    description,
+    exercises,
+  };
 }
 
 function validateWorkouts(value: any): Workout[] {

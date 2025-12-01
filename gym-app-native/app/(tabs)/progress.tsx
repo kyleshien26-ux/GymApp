@@ -178,6 +178,7 @@ function buildProgress(workouts: Workout[], timeframe: Timeframe) {
 }
 
 function formatDelta(value: number, suffix: string) {
+  if (!Number.isFinite(value)) return `0${suffix}`;
   const sign = value > 0 ? '+' : '';
   return `${sign}${value}${suffix}`;
 }

@@ -10,6 +10,10 @@ const PRIMARY = '#2563ff';
 export default function ExerciseLog() {
   const router = useRouter();
 
+  const handleDone = () => {
+    router.back();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -17,7 +21,7 @@ export default function ExerciseLog() {
           <Ionicons name="arrow-back" size={22} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.title}>Bench Press</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleDone}>
           <Text style={styles.doneButton}>Done</Text>
         </TouchableOpacity>
       </View>
