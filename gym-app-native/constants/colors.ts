@@ -3,6 +3,7 @@ export const colors = {
   border: '#e5e7eb',
   muted: '#475467',
   text: '#0f172a',
+  textSecondary: '#6b7280',
   background: '#f5f7fb',
   card: '#ffffff',
   accent: '#6366f1',

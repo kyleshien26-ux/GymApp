@@ -26,9 +26,9 @@ const faqs: FAQItem[] = [
   },
   {
     id: '2',
-    question: 'How does the AI planner work?',
+    question: 'How does the Smart Planner work?',
     answer:
-      'The AI planner analyzes your workout history and creates personalized recommendations based on your goals, equipment, and available time.',
+      'The Smart Planner uses a rule-based algorithm to create personalized workout recommendations based on your goals, equipment, and available time.',
   },
   {
     id: '3',
@@ -46,7 +46,7 @@ const faqs: FAQItem[] = [
     id: '5',
     question: 'Is my data backed up?',
     answer:
-      'Your workouts are saved locally on your device. We recommend regularly exporting your data for backup purposes.',
+      'Your workouts are saved locally on your device. We recommend regularly exporting your data via Data Management for backup purposes.',
   },
   {
     id: '6',
@@ -67,6 +67,12 @@ export default function Help() {
     Linking.openURL('mailto:kyleshien26@gmail.com?subject=GymApp Support');
   };
 
+  const handlePrivacy = () => {
+    router.push('/settings/privacy');
+  };
+
+  const handleTerms = () => {
+    router.push('/settings/terms');
   };
 
   return (
@@ -91,13 +97,6 @@ export default function Help() {
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Email Support</Text>
               <Text style={styles.contactValue}>kyleshien26@gmail.com</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-          </TouchableOpacity>
-
-            <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactValue}>Join our community</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
@@ -130,15 +129,15 @@ export default function Help() {
         {/* Additional Resources */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Resources</Text>
-          <TouchableOpacity style={styles.resourceLink}>
+          <TouchableOpacity style={styles.resourceLink} onPress={handlePrivacy}>
             <Ionicons name="document-outline" size={20} color={colors.primary} />
             <Text style={styles.resourceText}>Privacy Policy</Text>
-            <Ionicons name="open-outline" size={16} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.resourceLink}>
+          <TouchableOpacity style={styles.resourceLink} onPress={handleTerms}>
             <Ionicons name="document-outline" size={20} color={colors.primary} />
             <Text style={styles.resourceText}>Terms of Service</Text>
-            <Ionicons name="open-outline" size={16} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
           </TouchableOpacity>
         </View>
       </ScrollView>
