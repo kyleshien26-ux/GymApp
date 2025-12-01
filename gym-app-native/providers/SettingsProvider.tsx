@@ -10,6 +10,7 @@ export type UserProfile = {
   height: number;
   fitnessGoal: string;
   profilePicture: string | null;
+  avatar: string;
 };
 
 export type WorkoutPreferences = {
@@ -62,6 +63,7 @@ const defaultSettings: AppSettings = {
     height: 0,
     fitnessGoal: 'Build Muscle',
     profilePicture: null,
+    avatar: "💪",
   },
   preferences: {
     defaultRestTimer: 90,

@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useSettings } from '../../providers/SettingsProvider';
+
+const AVATARS = ['💪', '🏋️', '🏃', '🧘', '🚴', '⚡', '🔥', '🎯', '🏆', '⭐', '🦾', '🥇'];
 
 export default function ProfileSettings() {
   const router = useRouter();
@@ -22,6 +25,8 @@ export default function ProfileSettings() {
   const [weight, setWeight] = useState('0');
   const [height, setHeight] = useState('0');
   const [fitnessGoal, setFitnessGoal] = useState('Build Muscle');
+  const [avatar, setAvatar] = useState('💪');
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -31,6 +36,7 @@ export default function ProfileSettings() {
       setWeight(String(settings.profile.weight || 0));
       setHeight(String(settings.profile.height || 0));
       setFitnessGoal(settings.profile.fitnessGoal || 'Build Muscle');
+      setAvatar(settings.profile.avatar || '💪');
     }
   }, [loading, settings.profile]);
 
@@ -45,6 +51,7 @@ export default function ProfileSettings() {
         weight: parseFloat(weight) || 0,
         height: parseFloat(height) || 0,
         fitnessGoal,
+        avatar,
       });
       Alert.alert('Success', 'Your profile settings have been saved.');
     } catch (err) {
@@ -68,12 +75,17 @@ export default function ProfileSettings() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Profile Picture Section */}
+        {/* Profile Avatar Section */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={48} color={colors.primary} />
-          </View>
-          <Text style={styles.avatarNote}>Profile pictures require iOS photo library access</Text>
+          <TouchableOpacity 
+            style={styles.avatarPlaceholder}
+            onPress={() => setShowAvatarPicker(true)}
+          >
+            <Text style={styles.avatarEmoji}>{avatar}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowAvatarPicker(true)}>
+            <Text style={styles.avatarNote}>Tap to change avatar</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Personal Information */}
@@ -167,6 +179,43 @@ export default function ProfileSettings() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Avatar Picker Modal */}
+      <Modal
+        visible={showAvatarPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAvatarPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose Avatar</Text>
+            <View style={styles.avatarGrid}>
+              {AVATARS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[
+                    styles.avatarOption,
+                    avatar === emoji && styles.avatarOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setAvatar(emoji);
+                    setShowAvatarPicker(false);
+                  }}
+                >
+                  <Text style={styles.avatarOptionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setShowAvatarPicker(false)}
+            >
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -206,15 +255,19 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: colors.card,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
+  avatarEmoji: {
+    fontSize: 48,
+  },
   avatarNote: {
-    fontSize: 12,
-    color: colors.muted,
+    fontSize: 14,
+    color: colors.primary,
     textAlign: 'center',
+    fontWeight: '600',
   },
   section: {
     marginBottom: 24,
@@ -285,5 +338,57 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 20,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  avatarOption: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  avatarOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.card,
+  },
+  avatarOptionEmoji: {
+    fontSize: 32,
+  },
+  modalClose: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  modalCloseText: {
+    color: colors.muted,
+    fontWeight: '600',
+    fontSize: 15,
   },
 });
