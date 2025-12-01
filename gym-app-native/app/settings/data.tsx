@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Share,
-  ActivityIndicator,
+  Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,91 +18,97 @@ import { colors } from '../../constants/colors';
 
 export default function DataManagement() {
   const router = useRouter();
-  const { workouts, clearStore } = useWorkouts();
+  const { workouts, templates, clearStore } = useWorkouts();
   const { exportData, importData } = useSettings();
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(title + '\n\n' + message);
+    } else {
+      Alert.alert(title, message);
+    }
   };
 
-  const estimatedDataSize = formatBytes(JSON.stringify(workouts).length);
-
-  const handleExportData = async () => {
+  const handleExport = async () => {
     setIsExporting(true);
     try {
       const csv = await exportData();
-      await Share.share({
-        message: csv,
-        title: 'GymApp Backup',
-      });
+      
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gymapp_export_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showAlert('Success', 'Data exported successfully!');
+      } else {
+        showAlert('Export Ready', 'CSV data has been prepared.');
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to export data. Please try again.');
+      showAlert('Error', 'Failed to export data. Please try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleImportData = async () => {
-    setIsImporting(true);
+  const handleImport = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'text/csv',
-        copyToCacheDirectory: true,
+        type: ['text/csv', 'application/json', 'text/plain'],
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const fileUri = result.assets[0].uri;
-        const response = await fetch(fileUri);
-        const json = await response.text();
+      if (result.canceled) return;
 
-        const success = await importData(json);
-        if (success) {
-          Alert.alert('Success', 'Data imported successfully. Please restart the app to see changes.');
-        } else {
-          Alert.alert('Error', 'Invalid backup file format.');
-        }
+      setIsImporting(true);
+      const file = result.assets[0];
+      const response = await fetch(file.uri);
+      const text = await response.text();
+      
+      const success = await importData(text);
+      if (success) {
+        showAlert('Success', 'Data imported successfully. Please restart the app to see changes.');
+      } else {
+        showAlert('Error', 'Invalid file format. Please use a valid CSV or JSON file.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to import data. Please try again.');
+      showAlert('Error', 'Failed to import data. Please try again.');
     } finally {
       setIsImporting(false);
     }
   };
 
   const handleResetData = () => {
-    Alert.alert(
-      'Clear All Data',
-      `Are you sure you want to delete all ${workouts.length} workouts? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              await clearStore();
-              Alert.alert('Data Cleared', 'All workouts have been deleted.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      setShowDeleteModal(true);
+    } else {
+      Alert.alert(
+        'Clear All Data',
+        'Are you sure you want to delete all ' + workouts.length + ' workouts and ' + templates.length + ' templates? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+        ]
+      );
+    }
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    setIsDeleting(true);
+    try {
+      await clearStore();
+      showAlert('Success', 'All data has been cleared!');
+    } catch (error) {
+      showAlert('Error', 'Failed to clear data. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -119,88 +125,51 @@ export default function DataManagement() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Storage Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Storage Information</Text>
-
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Total Workouts</Text>
-                <Text style={styles.infoDescription}>Number of logged sessions</Text>
-              </View>
-              <Text style={styles.infoValue}>{workouts.length}</Text>
+        {/* Data Summary */}
+        <View style={styles.summarySection}>
+          <Text style={styles.sectionTitle}>Your Data</Text>
+          <View style={styles.summaryCards}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNumber}>{workouts.length}</Text>
+              <Text style={styles.summaryLabel}>Workouts</Text>
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Estimated Size</Text>
-                <Text style={styles.infoDescription}>Local storage usage</Text>
-              </View>
-              <Text style={styles.infoValue}>{estimatedDataSize}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Total Exercises</Text>
-                <Text style={styles.infoDescription}>Unique exercises logged</Text>
-              </View>
-              <Text style={styles.infoValue}>
-                {new Set(workouts.flatMap(w => w.exercises.map(e => e.name))).size}
-              </Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Total Volume</Text>
-                <Text style={styles.infoDescription}>Cumulative weight × reps</Text>
-              </View>
-              <Text style={styles.infoValue}>
-                {(workouts.reduce((sum, w) => sum + w.totalVolume, 0) / 1000).toFixed(1)}k kg
-              </Text>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNumber}>{templates.length}</Text>
+              <Text style={styles.summaryLabel}>Templates</Text>
             </View>
           </View>
         </View>
 
-        {/* Backup Section */}
+        {/* Export/Import */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Backup</Text>
+          <Text style={styles.sectionTitle}>Backup & Restore</Text>
+          
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleExportData}
+            onPress={handleExport}
             disabled={isExporting}
           >
-            {isExporting ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
-            )}
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
             <View style={styles.actionContent}>
-              <Text style={styles.actionLabel}>Export Data</Text>
-              <Text style={styles.actionDescription}>Save workout data as CSV</Text>
+              <Text style={styles.actionLabel}>
+                {isExporting ? 'Exporting...' : 'Export Data'}
+              </Text>
+              <Text style={styles.actionDescription}>Download your workouts as CSV</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleImportData}
+            onPress={handleImport}
             disabled={isImporting}
           >
-            {isImporting ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Ionicons name="cloud-upload-outline" size={20} color={colors.primary} />
-            )}
+            <Ionicons name="cloud-upload-outline" size={20} color={colors.primary} />
             <View style={styles.actionContent}>
-              <Text style={styles.actionLabel}>Import Data</Text>
-              <Text style={styles.actionDescription}>Restore from backup file</Text>
+              <Text style={styles.actionLabel}>
+                {isImporting ? 'Importing...' : 'Import Data'}
+              </Text>
+              <Text style={styles.actionDescription}>Restore from CSV or JSON backup</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
@@ -208,36 +177,55 @@ export default function DataManagement() {
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={[styles.sectionTitle, { color: colors.danger }]}>Danger Zone</Text>
+          
           <TouchableOpacity
-            style={styles.dangerButton}
+            style={[styles.actionButton, styles.dangerButton]}
             onPress={handleResetData}
-            disabled={isDeleting || workouts.length === 0}
+            disabled={isDeleting || (workouts.length === 0 && templates.length === 0)}
           >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
             <View style={styles.actionContent}>
-              <Text style={styles.dangerLabel}>Delete All Workouts</Text>
-              <Text style={styles.dangerDescription}>Permanently remove all logged data</Text>
+              <Text style={styles.dangerLabel}>
+                {isDeleting ? 'Deleting...' : 'Delete All Data'}
+              </Text>
+              <Text style={styles.dangerDescription}>Permanently remove all workouts and templates</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.danger} />
           </TouchableOpacity>
-
-          {workouts.length === 0 && (
-            <View style={styles.emptyMessage}>
-              <Text style={styles.emptyText}>No workouts to delete</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Info Message */}
-        <View style={styles.infoMessage}>
-          <Ionicons name="information-circle" size={20} color={colors.primary} />
-          <Text style={styles.messageText}>
-            All your data is stored locally on this device. Clearing data cannot be undone. Please back up
-            important information before deleting.
-          </Text>
         </View>
       </ScrollView>
+
+      {/* Delete Confirmation Modal (for web) */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="warning" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
+            <Text style={styles.modalTitle}>Delete All Data?</Text>
+            <Text style={styles.modalMessage}>
+              This will permanently delete {workouts.length} workouts and {templates.length} templates. This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalDeleteButton}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.modalDeleteText}>Delete All</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -267,7 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
-  section: {
+  summarySection: {
     marginBottom: 24,
   },
   sectionTitle: {
@@ -276,42 +264,31 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
-  infoCard: {
+  summaryCards: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  summaryCard: {
+    flex: 1,
     backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 16,
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  infoDescription: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  infoValue: {
-    fontSize: 16,
+  summaryNumber: {
+    fontSize: 28,
     fontWeight: '700',
     color: colors.primary,
-    textAlign: 'right',
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
+  summaryLabel: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 4,
+  },
+  section: {
+    marginBottom: 24,
   },
   actionButton: {
     flexDirection: 'row',
@@ -321,7 +298,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginBottom: 10,
     gap: 12,
   },
@@ -329,7 +306,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
@@ -339,52 +316,73 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 12,
+    borderColor: colors.danger,
+    backgroundColor: '#fef2f2',
   },
   dangerLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.danger,
   },
   dangerDescription: {
     fontSize: 12,
     color: colors.danger,
-    marginTop: 2,
     opacity: 0.8,
+    marginTop: 2,
   },
-  emptyMessage: {
-    marginTop: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  infoMessage: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f9ff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    padding: 12,
-    gap: 10,
-    marginTop: 16,
-  },
-  messageText: {
+  modalOverlay: {
     flex: 1,
-    fontSize: 12,
-    color: '#1e40af',
-    lineHeight: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalDeleteButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

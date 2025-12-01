@@ -134,6 +134,7 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
     setLoading(true);
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem("@gymapp/settings");
       await AsyncStorage.removeItem(TEMPLATES_KEY);
       if (Platform.OS !== 'web') {
         const info = await FileSystem.getInfoAsync(FILE_PATH);
@@ -463,6 +464,7 @@ async function readStore(): Promise<Workout[]> {
     // If parsing fails, data is corrupted - clear it
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem("@gymapp/settings");
     } catch {}
   }
 
