@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSettings } from '../../providers/SettingsProvider';
 import { colors } from '../../constants/colors';
 
@@ -9,6 +10,7 @@ const MUTED = '#475467';
 
 export default function Records() {
   const { settings } = useSettings();
+  const router = useRouter();
 
   const sortedPRs = useMemo(() => {
     return Object.entries(settings.personalRecords)
@@ -35,6 +37,9 @@ export default function Records() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={{marginRight: 12}}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </TouchableOpacity>
           <Text style={styles.title}>Personal Records</Text>
           <Ionicons name="trophy-outline" size={22} color="#f59e0b" />
         </View>

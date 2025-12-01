@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSettings } from '../../providers/SettingsProvider';
 import { colors } from '../../constants/colors';
 
@@ -26,6 +27,7 @@ const MEASUREMENT_TYPES: { label: string; value: MeasurementType; unit: string }
 
 export default function Measurements() {
   const { settings, addMeasurement } = useSettings();
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState<MeasurementType>('weight');
   const [value, setValue] = useState('');
@@ -103,6 +105,9 @@ export default function Measurements() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={{marginRight: 12, paddingTop: 4}}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </TouchableOpacity>
           <View>
             <Text style={styles.title}>Measurements</Text>
             <Text style={styles.subtitle}>Track body metrics</Text>
