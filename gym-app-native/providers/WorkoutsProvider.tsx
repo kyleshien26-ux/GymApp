@@ -71,8 +71,9 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
     } catch (err) {
       console.warn('Failed to load workouts', err);
       setWorkouts([]);
-      // Force reload on web to clear any cached state
+      // Force page reload on web to clear cached state
       if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.reload();
       }
       setTemplates([]);
     } finally {
@@ -158,8 +159,9 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
       console.warn('Failed to clear data', err);
     } finally {
       setWorkouts([]);
-      // Force reload on web to clear any cached state
+      // Force page reload on web to clear cached state
       if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.reload();
       }
       setTemplates([]);
       setLoading(false);
