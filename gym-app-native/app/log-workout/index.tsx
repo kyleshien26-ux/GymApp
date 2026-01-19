@@ -22,7 +22,7 @@ import type { Exercise } from '../../constants/exercises';
 export default function LogWorkout() {
   const router = useRouter();
   const { addWorkout, addTemplate } = useWorkouts();
-  const { settings } = useSettings();
+  const { settings, getWeightSuggestion, recordWorkout } = useSettings();
   const startedAt = useRef(Date.now());
 
   const [workoutTitle, setWorkoutTitle] = useState("Today's Session");
@@ -66,6 +66,20 @@ export default function LogWorkout() {
     );
   };
 
+  const applySuggestion = (exerciseId: string, setId: string, suggestedWeight: number) => {
+    setExercises((prev) =>
+      prev.map((exercise) => {
+        if (exercise.id !== exerciseId) return exercise;
+        return {
+          ...exercise,
+          sets: exercise.sets.map((set) =>
+            set.id === setId ? { ...set, weight: suggestedWeight } : set,
+          ),
+        };
+      }),
+    );
+  };
+
   const addSet = (exerciseId: string) => {
     setExercises((prev) =>
       prev.map((exercise) =>
@@ -94,6 +108,12 @@ export default function LogWorkout() {
       return;
     }
 
+    const exercisesForRecord = exercises.map(ex => ({
+      name: ex.name,
+      sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps }))
+    }));
+    await recordWorkout(exercisesForRecord, totals.totalVolume, totals.totalSets);
+
     setError(null);
     setTemplateName(workoutTitle);
     setShowSaveTemplate(true);
@@ -117,6 +137,21 @@ export default function LogWorkout() {
     setTemplateName('');
     setTemplateDesc('');
     router.push('/history');
+  };
+
+  const getSuggestionDisplay = (reason: string, confidence: number) => {
+    switch (reason) {
+      case 'INCREASE':
+        return { label: '↑ Increase', color: '#22c55e', icon: 'trending-up' };
+      case 'DECREASE':
+        return { label: '↓ Decrease', color: '#f59e0b', icon: 'trending-down' };
+      case 'DELOAD':
+        return { label: '⟳ Deload', color: '#ef4444', icon: 'refresh' };
+      case 'HOLD':
+        return { label: '→ Maintain', color: '#3b82f6', icon: 'remove' };
+      default:
+        return { label: 'New Exercise', color: colors.muted, icon: 'add' };
+    }
   };
 
   return (
@@ -266,60 +301,96 @@ export default function LogWorkout() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {exercises.map((exercise, idx) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
-            <View style={styles.exerciseHeader}>
-              <View style={styles.exerciseChip}>
-                <Text style={styles.exerciseChipText}>{idx + 1}</Text>
-              </View>
-              <TextInput
-                value={exercise.name}
-                onChangeText={(text) => updateExerciseName(exercise.id, text)}
-                placeholder="Exercise name"
-                placeholderTextColor={colors.muted}
-                style={styles.exerciseNameInput}
-              />
-              <TouchableOpacity onPress={() => handleRemoveExercise(exercise.id)}>
-                <Text style={styles.removeText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+        {exercises.map((exercise, idx) => {
+          const suggestion = getWeightSuggestion(exercise.name, 8);
+          const suggestionDisplay = getSuggestionDisplay(suggestion.reason, suggestion.confidence);
+          const hasSuggestion = suggestion.weight > 0;
 
-            {exercise.sets.map((set, setIdx) => (
-              <View key={set.id} style={styles.setBox}>
-                <Text style={styles.setLabel}>Set {setIdx + 1}</Text>
-                <View style={styles.inputRow}>
-                  <View style={styles.inputPill}>
-                    <Text style={styles.inputPillLabel}>Weight (kg)</Text>
-                    <TextInput
-                      style={styles.inputValue}
-                      keyboardType="numeric"
-                      value={String(set.weight || '')}
-                      onChangeText={(text) => updateSet(exercise.id, set.id, 'weight', text)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
-                  <View style={styles.inputPill}>
-                    <Text style={styles.inputPillLabel}>Reps</Text>
-                    <TextInput
-                      style={styles.inputValue}
-                      keyboardType="numeric"
-                      value={String(set.reps || '')}
-                      onChangeText={(text) => updateSet(exercise.id, set.id, 'reps', text)}
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                    />
+          return (
+            <View key={exercise.id} style={styles.exerciseCard}>
+              <View style={styles.exerciseHeader}>
+                <View style={styles.exerciseChip}>
+                  <Text style={styles.exerciseChipText}>{idx + 1}</Text>
+                </View>
+                <TextInput
+                  value={exercise.name}
+                  onChangeText={(text) => updateExerciseName(exercise.id, text)}
+                  placeholder="Exercise name"
+                  placeholderTextColor={colors.muted}
+                  style={styles.exerciseNameInput}
+                />
+                <TouchableOpacity onPress={() => handleRemoveExercise(exercise.id)}>
+                  <Text style={styles.removeText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+
+              {hasSuggestion && (
+                <View style={[styles.suggestionBanner, { borderLeftColor: suggestionDisplay.color }]}>
+                  <View style={styles.suggestionContent}>
+                    <View style={styles.suggestionHeader}>
+                      <Ionicons name={suggestionDisplay.icon as any} size={16} color={suggestionDisplay.color} />
+                      <Text style={[styles.suggestionLabel, { color: suggestionDisplay.color }]}>
+                        {suggestionDisplay.label}
+                      </Text>
+                      <Text style={styles.suggestionConfidence}>
+                        {suggestion.confidence}% confidence
+                      </Text>
+                    </View>
+                    <Text style={styles.suggestionWeight}>
+                      Suggested: <Text style={styles.suggestionWeightBold}>{suggestion.weight} kg</Text> for 8 reps
+                    </Text>
                   </View>
                 </View>
-              </View>
-            ))}
+              )}
 
-            <TouchableOpacity style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
-              <Ionicons name='add' size={16} color={colors.primary} />
-              <Text style={styles.addSetText}>Add set</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+              {exercise.sets.map((set, setIdx) => (
+                <View key={set.id} style={styles.setBox}>
+                  <View style={styles.setHeader}>
+                    <Text style={styles.setLabel}>Set {setIdx + 1}</Text>
+                    {hasSuggestion && set.weight === 0 && (
+                      <TouchableOpacity
+                        style={styles.applySuggestionBtn}
+                        onPress={() => applySuggestion(exercise.id, set.id, suggestion.weight)}
+                      >
+                        <Ionicons name="flash" size={12} color="#fff" />
+                        <Text style={styles.applySuggestionText}>Use {suggestion.weight}kg</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <View style={styles.inputRow}>
+                    <View style={styles.inputPill}>
+                      <Text style={styles.inputPillLabel}>Weight (kg)</Text>
+                      <TextInput
+                        style={styles.inputValue}
+                        keyboardType="numeric"
+                        value={String(set.weight || '')}
+                        onChangeText={(text) => updateSet(exercise.id, set.id, 'weight', text)}
+                        placeholder="0"
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                    <View style={styles.inputPill}>
+                      <Text style={styles.inputPillLabel}>Reps</Text>
+                      <TextInput
+                        style={styles.inputValue}
+                        keyboardType="numeric"
+                        value={String(set.reps || '')}
+                        onChangeText={(text) => updateSet(exercise.id, set.id, 'reps', text)}
+                        placeholder="0"
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              <TouchableOpacity style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
+                <Ionicons name='add' size={16} color={colors.primary} />
+                <Text style={styles.addSetText}>Add set</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -347,290 +418,61 @@ function formatNumber(num: number) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  timerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-  },
-  summaryItem: {
-    flex: 1,
-    padding: 12,
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  inputCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    marginBottom: 6,
-  },
-  workoutInput: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 12,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addExerciseBox: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginVertical: 12,
-    backgroundColor: colors.card,
-  },
-  addExerciseText: {
-    color: colors.text,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  exerciseCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  exerciseChip: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: '#e0e7ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseChipText: {
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  exerciseNameInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: 4,
-  },
-  removeText: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  setBox: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: colors.card,
-    marginBottom: 10,
-  },
-  setLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  inputPill: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  inputPillLabel: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  inputValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 4,
-  },
-  addSetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  addSetText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  errorText: {
-    color: colors.danger,
-    marginBottom: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: colors.muted,
-    marginBottom: 20,
-  },
-  inputSection: {
-    marginBottom: 16,
-  },
-  modalInputLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  templateInput: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 12,
-    color: colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  descriptionInput: {
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  modalSecondaryButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  modalSecondaryButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalPrimaryButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  modalPrimaryButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 54, paddingBottom: 16 },
+  title: { fontSize: 24, fontWeight: '800', color: colors.text },
+  subtitle: { fontSize: 13, color: colors.muted, marginTop: 4 },
+  saveButton: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+  saveButtonText: { color: '#fff', fontWeight: '700' },
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  timerButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingHorizontal: 20, paddingBottom: 60 },
+  summaryRow: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 },
+  summaryItem: { flex: 1, padding: 12, alignItems: 'center', borderRightWidth: 1, borderRightColor: colors.border },
+  summaryLabel: { fontSize: 12, color: colors.muted, marginBottom: 4 },
+  summaryValue: { fontSize: 18, fontWeight: '800', color: colors.text },
+  inputCard: { backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 12, marginBottom: 12 },
+  inputLabel: { fontSize: 12, color: colors.muted, marginBottom: 6 },
+  workoutInput: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 12, color: colors.text, fontSize: 15, borderWidth: 1, borderColor: colors.border },
+  addExerciseBox: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginVertical: 12, backgroundColor: colors.card },
+  addExerciseText: { color: colors.text, fontWeight: '700', fontSize: 15 },
+  exerciseCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 },
+  exerciseHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  exerciseChip: { width: 26, height: 26, borderRadius: 8, backgroundColor: '#e0e7ff', alignItems: 'center', justifyContent: 'center' },
+  exerciseChipText: { fontWeight: '700', color: colors.primary },
+  exerciseNameInput: { flex: 1, marginLeft: 10, fontSize: 16, fontWeight: '700', color: colors.text, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 4 },
+  removeText: { fontSize: 13, color: colors.muted },
+  suggestionBanner: { backgroundColor: '#f0fdf4', borderRadius: 10, padding: 12, marginBottom: 12, borderLeftWidth: 4 },
+  suggestionContent: { flex: 1 },
+  suggestionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  suggestionLabel: { fontSize: 13, fontWeight: '700' },
+  suggestionConfidence: { fontSize: 11, color: colors.muted, marginLeft: 'auto' },
+  suggestionWeight: { fontSize: 14, color: colors.text },
+  suggestionWeightBold: { fontWeight: '800', color: colors.primary },
+  setBox: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, marginBottom: 10 },
+  setHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  setLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+  applySuggestionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  applySuggestionText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  inputRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  inputPill: { flex: 1, backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: colors.border },
+  inputPillLabel: { fontSize: 12, color: colors.muted },
+  inputValue: { fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 4 },
+  addSetButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10 },
+  addSetText: { fontSize: 14, color: colors.primary, fontWeight: '700' },
+  errorText: { color: colors.danger, marginBottom: 10 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
+  modalSubtitle: { fontSize: 14, color: colors.muted, marginBottom: 20 },
+  inputSection: { marginBottom: 16 },
+  modalInputLabel: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  templateInput: { backgroundColor: colors.background, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, borderWidth: 1, borderColor: colors.border },
+  descriptionInput: { minHeight: 60, textAlignVertical: 'top' },
+  modalButtonRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalSecondaryButton: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  modalSecondaryButtonText: { fontSize: 15, fontWeight: '700', color: colors.text },
+  modalPrimaryButton: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center' },
+  modalPrimaryButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

@@ -7,12 +7,19 @@ export default function RootLayout() {
   return (
     <SettingsProvider>
       <WorkoutsProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            presentation: 'card' as const,
-          }}
-        />
+        <Stack screenOptions={{ headerShown: false }}>
+          {/* Ensure the "tabs" is the main entry point */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Explicitly define the history detail route */}
+          <Stack.Screen 
+            name="history/detail" 
+            options={{ 
+              headerShown: true, 
+              title: 'Workout Detail',
+              headerBackTitle: 'History' 
+            }} 
+          />
+        </Stack>
       </WorkoutsProvider>
     </SettingsProvider>
   );
