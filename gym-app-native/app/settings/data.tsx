@@ -84,6 +84,7 @@ export default function DataManagement() {
   };
 
   const handleResetData = () => {
+    console.log("[TRACE] handleResetData called, Platform:", Platform.OS);
     if (Platform.OS === 'web') {
       setShowDeleteModal(true);
     } else {
@@ -99,10 +100,11 @@ export default function DataManagement() {
   };
 
   const confirmDelete = async () => {
+    console.log("[TRACE] confirmDelete called");
     setShowDeleteModal(false);
     setIsDeleting(true);
     try {
-      await clearStore();
+      console.log("[TRACE] Calling clearStore..."); await clearStore(); console.log("[TRACE] clearStore completed");
       showAlert('Success', 'All data has been cleared!');
     } catch (error) {
       showAlert('Error', 'Failed to clear data. Please try again.');

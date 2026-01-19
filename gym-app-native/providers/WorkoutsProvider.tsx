@@ -73,7 +73,6 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
       setWorkouts([]);
       // Force reload on web to clear any cached state
       if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.location.reload();
       }
       setTemplates([]);
     } finally {
@@ -135,13 +134,14 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   );
 
   const clearStore = useCallback(async () => {
+    console.log("[TRACE] clearStore called");
     setLoading(true);
     try {
       // Clear web localStorage explicitly
       if (Platform.OS === "web" && typeof window !== "undefined") {
-        try { window.localStorage.clear(); } catch {}
+        try { window.localStorage.clear(); } catch (e) { }
       }
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(STORAGE_KEY); console.log("[TRACE] STORAGE_KEY removed");
       await AsyncStorage.removeItem("@gymapp/settings");
       await AsyncStorage.removeItem(TEMPLATES_KEY);
       if (Platform.OS !== 'web') {
@@ -160,7 +160,6 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
       setWorkouts([]);
       // Force reload on web to clear any cached state
       if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.location.reload();
       }
       setTemplates([]);
       setLoading(false);
@@ -477,9 +476,9 @@ async function readStore(): Promise<Workout[]> {
     try {
       // Clear web localStorage explicitly
       if (Platform.OS === "web" && typeof window !== "undefined") {
-        try { window.localStorage.clear(); } catch {}
+        try { window.localStorage.clear(); } catch (e) { }
       }
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(STORAGE_KEY); console.log("[TRACE] STORAGE_KEY removed");
       await AsyncStorage.removeItem("@gymapp/settings");
     } catch {}
   }

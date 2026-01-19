@@ -16,7 +16,10 @@ export default function History() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <View style={styles.header}>
+        <View style={styles.headerBar}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
           <Text style={styles.title}>History</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/progress')}>
             <Ionicons name="stats-chart" size={22} color={colors.muted} />
@@ -79,6 +82,14 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 80,
+  },
+  headerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  backButton: {
+    marginRight: 8,
   },
   header: {
     flexDirection: 'row',
