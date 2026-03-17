@@ -125,8 +125,8 @@ export default function Templates() {
         onPress={() => handleStart(t.id)}
         style={[styles.card, isNext && styles.cardNext]}
       >
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
             <Text style={styles.cardTitle}>{t.name}</Text>
             {isNext && (
                <View style={styles.nextBadge}>
