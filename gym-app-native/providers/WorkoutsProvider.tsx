@@ -14,6 +14,7 @@ type WorkoutsContextValue = {
   addTemplate: (template: Template) => Promise<void>;
   updateTemplate: (id: string, template: Template) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
+  deleteFolder: (folderName: string) => Promise<void>;
   togglePinTemplate: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   clearStore: () => Promise<void>;
@@ -122,12 +123,10 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   };
 
   const deleteWorkout = async (id: string) => {
-    return new Promise<void>((resolve) => {
-      setWorkouts(prev => {
-        const next = prev.filter(w => w.id !== id);
-        persist(STORAGE_KEY, next).then(resolve);
-        return next;
-      });
+    setWorkouts(prev => {
+      const next = prev.filter(w => w.id !== id);
+      persist(STORAGE_KEY, next);
+      return next;
     });
   };
 
@@ -140,12 +139,18 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   };
 
   const deleteTemplate = async (id: string) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = prev.filter(t => t.id !== id);
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
+    setTemplates(prev => {
+      const next = prev.filter(t => t.id !== id);
+      persist(TEMPLATES_KEY, next);
+      return next;
+    });
+  };
+
+  const deleteFolder = async (folderName: string) => {
+    setTemplates(prev => {
+      const next = prev.filter(t => t.folder !== folderName);
+      persist(TEMPLATES_KEY, next);
+      return next;
     });
   };
 
@@ -156,7 +161,7 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   }
 
   const value = useMemo(() => ({
-    workouts, templates, addWorkout, deleteWorkout, addTemplate, updateTemplate, deleteTemplate, togglePinTemplate, refresh, clearStore, isLoaded
+    workouts, templates, addWorkout, deleteWorkout, addTemplate, updateTemplate, deleteTemplate, deleteFolder, togglePinTemplate, refresh, clearStore, isLoaded
   }), [workouts, templates, isLoaded]);
 
   return <WorkoutsContext.Provider value={value}>{children}</WorkoutsContext.Provider>;

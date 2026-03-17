@@ -10,6 +10,7 @@ export default function HistoryDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { workouts, deleteWorkout } = useWorkouts();
+  const { recalculatePersonalRecords } = useSettings();
   
   const workout = workouts.find(w => w.id === id);
 
@@ -32,7 +33,9 @@ export default function HistoryDetail() {
           text: "Delete", 
           style: "destructive", 
           onPress: async () => {
+            const nextWorkouts = workouts.filter(w => w.id !== workout.id);
             await deleteWorkout(workout.id);
+            await recalculatePersonalRecords(nextWorkouts);
             router.back();
           } 
         }

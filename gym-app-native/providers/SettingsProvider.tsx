@@ -88,6 +88,7 @@ type SettingsContextValue = {
   updateNotifications: (newNotifs: Partial<AppSettings['notifications']>) => Promise<void>;
   updateUserProfile: (newProfile: Partial<UserProfile>) => Promise<void>;
   checkPersonalRecords: (workout: Workout) => Promise<void>;
+  recalculatePersonalRecords: (workouts: Workout[]) => Promise<void>;
   getSuggestion: (exerciseName: string, workouts: Workout[]) => { weight: number; reps: number; reason: string; confidence: number };
   addMeasurement: (measurement: Omit<Measurement, 'id'>) => Promise<void>;
   exportData: () => Promise<string>;
@@ -218,6 +219,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (hasNewPR) await updateSettings({ personalRecords: nextRecords });
   };
 
+  const recalculatePersonalRecords = async (workouts: Workout[]) => {
+    const nextRecords: Record<string, any> = {};
+    workouts.forEach(workout => {
+      workout.exercises.forEach(ex => {
+        if (Array.isArray(ex.sets)) {
+          ex.sets.forEach(set => {
+            if (!set.completed || !set.weight || !set.reps) return;
+            const est1RM = set.weight * (1 + set.reps / 30);
+            const current = nextRecords[ex.name];
+            if (!current || est1RM > current.estimated1RM) {
+              nextRecords[ex.name] = { weight: set.weight, reps: set.reps, date: workout.performedAt, estimated1RM: est1RM };
+            }
+          });
+        }
+      });
+    });
+    await updateSettings({ personalRecords: nextRecords });
+  };
+
   const getSuggestion = (exerciseName: string, workouts: Workout[]) => {
     return getScientificSuggestion(exerciseName, workouts, settings.userGoal);
   };
@@ -229,6 +249,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       updateNotifications,
       updateUserProfile, 
       checkPersonalRecords, 
+      recalculatePersonalRecords,
       getSuggestion, 
       addMeasurement,
       exportData,

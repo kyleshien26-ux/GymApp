@@ -9,7 +9,7 @@ import { PromptModal } from '../../components/ui';
 
 export default function Templates() {
   const router = useRouter();
-  const { templates, workouts, deleteTemplate, togglePinTemplate, updateTemplate, refresh } = useWorkouts();
+  const { templates, workouts, deleteTemplate, deleteFolder, togglePinTemplate, updateTemplate, refresh } = useWorkouts();
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [templateToMove, setTemplateToMove] = useState<Template | null>(null);
 
@@ -98,9 +98,8 @@ export default function Templates() {
         { 
           text: 'Delete', 
           style: 'destructive', 
-          onPress: () => {
-            const toDelete = templates.filter(t => t.folder === folderName);
-            toDelete.forEach(t => deleteTemplate(t.id));
+          onPress: async () => {
+            await deleteFolder(folderName);
           }
         }
       ]
