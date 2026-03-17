@@ -1,81 +1,53 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useWorkouts, formatDateLabel, formatDuration } from '../../providers/WorkoutsProvider';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
+import { useWorkouts, formatDateLabel, formatDuration } from '../../providers/WorkoutsProvider';
+import { useSettings } from '../../providers/SettingsProvider';
 
-export default function WorkoutDetail() {
+export default function HistoryDetail() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams();
   const { workouts } = useWorkouts();
-
-  const workout = useMemo(() => workouts.find((w) => w.id === id), [workouts, id]);
+  
+  const workout = workouts.find(w => w.id === id);
 
   if (!workout) {
     return (
       <View style={styles.container}>
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={22} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.screenTitle}>Workout</Text>
-          <View style={{ width: 22 }} />
-        </View>
-        <Text style={styles.emptyText}>Workout not found.</Text>
+        <Text style={styles.error}>Workout not found</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.btn}><Text style={{color: colors.primary}}>Go Back</Text></TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.screenTitle}>{workout.title}</Text>
-        <View style={{ width: 22 }} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
+        <Text style={styles.title}>{formatDateLabel(workout.performedAt)}</Text>
+        <View style={{width: 24}}/>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.dateText}>
-          {formatDateLabel(workout.performedAt)} • {formatDuration(workout.durationMinutes)}
-        </Text>
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.durationMinutes}</Text>
-            <Text style={styles.statLabel}>Minutes</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.exercises.length}</Text>
-            <Text style={styles.statLabel}>Exercises</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.totalSets}</Text>
-            <Text style={styles.statLabel}>Sets</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>{workout.title}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}><Ionicons name="time-outline" size={16} color={colors.muted} /><Text style={styles.statVal}>{formatDuration(workout.durationMinutes)}</Text></View>
+            <View style={styles.statItem}><Ionicons name="barbell-outline" size={16} color={colors.muted} /><Text style={styles.statVal}>{workout.totalVolume.toLocaleString()} kg</Text></View>
+            <View style={styles.statItem}><Ionicons name="repeat-outline" size={16} color={colors.muted} /><Text style={styles.statVal}>{workout.totalSets} sets</Text></View>
           </View>
         </View>
-      </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {workout.exercises.map((exercise) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
-            {exercise.sets.map((set, idx) => (
-              <View key={set.id} style={styles.setRow}>
-                <Text style={styles.setLabel}>Set {idx + 1}</Text>
-                <Text style={styles.setWeight}>
-                  {set.weight} kg x {set.reps}
-                </Text>
-                <Ionicons
-                  name={set.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={20}
-                  color={set.completed ? '#22c55e' : '#cbd5e1'}
-                />
+        <Text style={styles.sectionHeader}>Exercises</Text>
+        {workout.exercises.map((ex, i) => (
+          <View key={i} style={styles.exerciseCard}>
+            <Text style={styles.exName}>{ex.name}</Text>
+            {Array.isArray(ex.sets) && ex.sets.map((set, j) => (
+              <View key={j} style={styles.setRow}>
+                <Text style={styles.setNum}>{j+1}</Text>
+                <Text style={styles.setDetails}>{set.weight}kg × {set.reps} reps</Text>
               </View>
             ))}
           </View>
@@ -86,95 +58,21 @@ export default function WorkoutDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  infoCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-  },
-  dateText: {
-    fontSize: 13,
-    color: colors.muted,
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stat: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  scroll: {
-    flex: 1,
-  },
-  exerciseCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  setRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  setLabel: {
-    fontSize: 13,
-    color: colors.muted,
-    flex: 1,
-  },
-  setWeight: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    flex: 1.2,
-    textAlign: 'right',
-    marginRight: 8,
-  },
-  emptyText: {
-    color: colors.muted,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
+  container: { flex: 1, backgroundColor: colors.background, paddingTop: 50 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center' },
+  title: { fontSize: 18, fontWeight: 'bold' },
+  error: { textAlign: 'center', marginTop: 100, fontSize: 18, color: colors.muted },
+  btn: { alignSelf: 'center', marginTop: 20 },
+  content: { padding: 20 },
+  summaryCard: { backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 24 },
+  summaryTitle: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  statItem: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  statVal: { fontWeight: '600', color: colors.text },
+  sectionHeader: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: colors.text },
+  exerciseCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+  exName: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  setRow: { flexDirection: 'row', marginBottom: 4 },
+  setNum: { width: 24, color: colors.muted, fontSize: 13 },
+  setDetails: { fontSize: 14, color: colors.text, fontWeight: '500' }
 });

@@ -12,47 +12,60 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
-import { useSettings } from '../../providers/SettingsProvider';
+import { useSettings, Gender, ActivityLevel, NutritionGoal } from '../../providers/SettingsProvider';
 
 const AVATARS = ['💪', '🏋️', '🏃', '🧘', '🚴', '⚡', '🔥', '🎯', '🏆', '⭐', '🦾', '🥇'];
 
 export default function ProfileSettings() {
   const router = useRouter();
-  const { settings, updateProfile, loading } = useSettings();
+  const { settings, updateSettings, updateUserProfile } = useSettings();
   
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('0');
-  const [weight, setWeight] = useState('0');
-  const [height, setHeight] = useState('0');
-  const [fitnessGoal, setFitnessGoal] = useState('Build Muscle');
+  const [username, setUsername] = useState(settings.username || '');
+  const [age, setAge] = useState(settings.userProfile.age.toString());
+  const [height, setHeight] = useState(settings.userProfile.height.toString());
+  const [weight, setWeight] = useState(settings.userProfile.currentWeight.toString());
+  const [gender, setGender] = useState<Gender>(settings.userProfile.gender);
+  const [activity, setActivity] = useState<ActivityLevel>(settings.userProfile.activityLevel);
+  const [nutritionGoal, setNutritionGoal] = useState<NutritionGoal>(settings.userProfile.nutritionGoal);
+  const [goal, setGoal] = useState<'Strength' | 'Hypertrophy' | 'Endurance'>(settings.userGoal || 'Hypertrophy');
+  
   const [avatar, setAvatar] = useState('💪');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      setName(settings.profile.name || '');
-      setAge(String(settings.profile.age || 0));
-      setWeight(String(settings.profile.weight || 0));
-      setHeight(String(settings.profile.height || 0));
-      setFitnessGoal(settings.profile.fitnessGoal || 'Build Muscle');
-      setAvatar(settings.profile.avatar || '💪');
-    }
-  }, [loading, settings.profile]);
+    setUsername(settings.username || '');
+    setAge(settings.userProfile.age.toString());
+    setHeight(settings.userProfile.height.toString());
+    setWeight(settings.userProfile.currentWeight.toString());
+    setGender(settings.userProfile.gender);
+    setActivity(settings.userProfile.activityLevel);
+    setNutritionGoal(settings.userProfile.nutritionGoal);
+    setGoal(settings.userGoal || 'Hypertrophy');
+  }, [settings]);
 
-  const fitnessGoals = ['Build Muscle', 'Lose Weight', 'Increase Strength', 'Improve Endurance', 'General Fitness'];
+  const trainingGoals: ('Strength' | 'Hypertrophy' | 'Endurance')[] = ['Strength', 'Hypertrophy', 'Endurance'];
+  const nutritionGoals: NutritionGoal[] = ['Cut', 'Bulk', 'Recomp'];
+  const activityLevels: ActivityLevel[] = ['Sedentary', 'Light', 'Moderate', 'Active', 'Very Active'];
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateProfile({
-        name: name.trim(),
-        age: parseInt(age) || 0,
-        weight: parseFloat(weight) || 0,
-        height: parseFloat(height) || 0,
-        fitnessGoal,
-        avatar,
+      await updateSettings({
+        username: username.trim(),
+        userGoal: goal,
       });
+      
+      await updateUserProfile({
+        age: parseInt(age) || 0,
+        height: parseFloat(height) || 0,
+        currentWeight: parseFloat(weight) || 0,
+        gender,
+        activityLevel: activity,
+        nutritionGoal,
+        avatar, // Include the avatar emoji in the update
+      });
+
       Alert.alert('Success', 'Your profile settings have been saved.');
     } catch (err) {
       Alert.alert('Error', 'Failed to save profile settings.');
@@ -60,6 +73,23 @@ export default function ProfileSettings() {
       setSaving(false);
     }
   };
+
+  const renderSelectGroup = (label: string, options: string[], current: string, setFunc: (val: any) => void) => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.chipContainer}>
+        {options.map((opt) => (
+          <TouchableOpacity
+            key={opt}
+            style={[styles.chip, current === opt && styles.chipActive]}
+            onPress={() => setFunc(opt)}
+          >
+            <Text style={[styles.chipText, current === opt && styles.chipTextActive]}>{opt}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -88,83 +118,59 @@ export default function ProfileSettings() {
           </TouchableOpacity>
         </View>
 
-        {/* Personal Information */}
+        {/* Identity */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>Identity</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>Username</Text>
             <TextInput
               style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter your name"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Enter your username"
               placeholderTextColor={colors.muted}
             />
           </View>
 
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
+          {renderSelectGroup('Gender', ['Male', 'Female'], gender, setGender)}
+        </View>
+
+        {/* Body Metrics */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Body Metrics</Text>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, {flex: 1, marginRight: 10}]}>
               <Text style={styles.label}>Age</Text>
-              <TextInput
-                style={styles.input}
-                value={age}
-                onChangeText={setAge}
-                placeholder="0"
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-              />
+              <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" />
             </View>
-            <View style={{ width: 12 }} />
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Weight (kg)</Text>
-              <TextInput
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="0"
-                placeholderTextColor={colors.muted}
-                keyboardType="decimal-pad"
-              />
+            <View style={[styles.inputGroup, {flex: 1}]}>
+              <Text style={styles.label}>Height (cm)</Text>
+              <TextInput style={styles.input} value={height} onChangeText={setHeight} keyboardType="numeric" />
             </View>
           </View>
-
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Height (cm)</Text>
-            <TextInput
-              style={styles.input}
-              value={height}
-              onChangeText={setHeight}
-              placeholder="0"
-              placeholderTextColor={colors.muted}
-              keyboardType="numeric"
-            />
+            <Text style={styles.label}>Weight (kg)</Text>
+            <TextInput style={styles.input} value={weight} onChangeText={setWeight} keyboardType="numeric" />
           </View>
         </View>
 
-        {/* Fitness Goal */}
+        {/* Goals & Activity */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fitness Goal</Text>
-          <View style={styles.goalButtons}>
-            {fitnessGoals.map((goal) => (
-              <TouchableOpacity
-                key={goal}
-                style={[
-                  styles.goalButton,
-                  fitnessGoal === goal && styles.goalButtonActive,
-                ]}
-                onPress={() => setFitnessGoal(goal)}
-              >
-                <Text
-                  style={[
-                    styles.goalButtonText,
-                    fitnessGoal === goal && styles.goalButtonTextActive,
-                  ]}
-                >
-                  {goal}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={styles.sectionTitle}>Goals & Lifestyle</Text>
+          {renderSelectGroup('Training Goal', trainingGoals, goal, setGoal)}
+          {renderSelectGroup('Nutrition Goal', nutritionGoals, nutritionGoal, setNutritionGoal)}
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Activity Level</Text>
+            <View style={{ gap: 8 }}>
+                {activityLevels.map((lvl) => (
+                    <TouchableOpacity key={lvl} style={[styles.optionRow, activity === lvl && styles.optionRowActive]} onPress={() => setActivity(lvl)}>
+                        <Text style={[styles.optionText, activity === lvl && styles.optionTextActive]}>{lvl}</Text>
+                        {activity === lvl && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                    </TouchableOpacity>
+                ))}
+            </View>
           </View>
         </View>
 
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 12,
   },
-  inputRow: {
+  row: {
     flexDirection: 'row',
   },
   label: {
@@ -300,29 +306,53 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  goalButtons: {
-    gap: 10,
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  goalButton: {
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: 'center',
   },
-  goalButtonActive: {
+  chipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  goalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  chipText: {
     color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
   },
-  goalButtonTextActive: {
+  chipTextActive: {
     color: '#fff',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  optionRowActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#eff6ff',
+  },
+  optionText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  optionTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   saveButton: {
     backgroundColor: colors.primary,
@@ -330,6 +360,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 32,
+    marginBottom: 40,
   },
   saveButtonDisabled: {
     opacity: 0.6,

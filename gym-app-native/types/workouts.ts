@@ -1,63 +1,48 @@
-export type SetEntry = {
+export interface SetEntry {
   id: string;
   weight: number;
   reps: number;
-  completed?: boolean;
-  notes?: string;
-};
+  completed: boolean;
+}
 
-export type ExerciseEntry = {
+export interface ExerciseEntry {
   id: string;
   name: string;
-  sets: SetEntry[];
+  sets: SetEntry[] | number; 
   notes?: string;
-};
+  reps?: string | number;
+  suggestedWeight?: number;
+  note?: string;
+  muscleGroup?: string; // For analytics/test support
+  movementPlane?: string; // For analytics
+  tier?: string; // For test support
+}
 
-export type Workout = {
+export interface Workout {
   id: string;
   title: string;
   performedAt: number;
   startedAt: number;
   durationMinutes: number;
-  totalVolume: number;
   totalSets: number;
+  totalVolume: number;
   exercises: ExerciseEntry[];
-};
+  progression?: { exerciseId: string; weight: number; reps: number; }[];
+}
 
-export type Template = {
+export interface Template {
   id: string;
   name: string;
   exercises: ExerciseEntry[];
+  isPinned?: boolean;
+  folder?: string;
   description?: string;
-};
+}
 
-export type NewWorkoutInput = {
-  title?: string;
-  performedAt?: number;
-  startedAt?: number;
-  durationMinutes?: number;
+export interface NewWorkoutInput {
+  title: string;
+  startedAt: number;
+  durationMinutes: number;
   exercises: ExerciseEntry[];
-};
-
-export type Goal = 'Strength' | 'Muscle Size' | 'Endurance' | 'Power';
-
-export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Advanced';
-
-export type PlanRecommendation = {
-  focus: string;
-  sets: number;
-  reps: string;
-  rest: string;
-  rationale: string;
-};
-
-export type PlanResult = {
-  sessionsPerWeek: number;
-  setsPerExercise: number;
-  repRange: string;
-  restRange: string;
-  weeklyVolume: number;
-  weeklyWorkouts: number;
-  adjustments: string[];
-  recommendations: PlanRecommendation[];
-};
+  performedAt?: number;
+}

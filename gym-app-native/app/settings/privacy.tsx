@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.muted,
     marginBottom: 16,
   },
   intro: {
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   },
   sectionContent: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.muted,
     lineHeight: 21,
   },
   footer: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.muted,
     fontStyle: 'italic',
     lineHeight: 18,
   },

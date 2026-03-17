@@ -1,56 +1,37 @@
-// TypeScript interfaces for GymApp workout system
-
-export interface Set {
-  reps: number;
+export interface SetEntry {
+  id: string;
   weight: number;
+  reps: number;
   completed: boolean;
-  restTime?: number; // seconds
 }
 
-export interface Exercise {
+export interface ExerciseEntry {
   id: string;
   name: string;
-  sets: Set[];
+  sets: SetEntry[];
   notes?: string;
-  muscleGroups?: string[];
 }
 
 export interface Workout {
   id: string;
-  name: string;
-  date: Date;
-  exercises: Exercise[];
-  totalVolume: number; // Total weight * reps
-  duration: number; // minutes
-  notes?: string;
+  title: string;
+  performedAt: number;
+  startedAt: number;
+  durationMinutes: number;
+  totalSets: number;
+  totalVolume: number;
+  exercises: ExerciseEntry[];
 }
 
-export interface PersonalRecord {
-  exercise: string;
-  weight: number;
-  reps: number;
-  date: Date;
-}
-
-export interface WorkoutTemplate {
+export interface Template {
   id: string;
   name: string;
-  exercises: Omit<Exercise, 'sets'>[];
-  category?: string;
-  estimatedDuration?: number;
+  exercises: ExerciseEntry[];
 }
 
-// Progress tracking types
-export interface ProgressStats {
-  volumeChange: number; // percentage
-  workoutChange: number; // number difference
-  currentVolume: number;
-  previousVolume: number;
-  currentWorkouts: number;
-  previousWorkouts: number;
-}
-
-export interface TimeframeData {
-  timeframe: 'Weekly' | 'Monthly' | 'Yearly';
-  stats: ProgressStats;
+export interface NewWorkoutInput {
+  title: string;
+  startedAt: number;
+  durationMinutes: number;
+  exercises: ExerciseEntry[];
 }

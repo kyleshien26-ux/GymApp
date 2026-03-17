@@ -1,152 +1,62 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
-import { Card } from '../../components/ui';
-import { formatDateLabel, formatDuration, useWorkouts } from '../../providers/WorkoutsProvider';
+import { useWorkouts } from '../../providers/WorkoutsProvider';
+import { formatDateLabel } from '../../lib/workout-planner';
+import { Workout } from '../../types/workouts';
 
 export default function History() {
   const router = useRouter();
   const { workouts } = useWorkouts();
 
+  const renderItem = ({ item }: { item: Workout }) => (
+    <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/history/detail', params: { id: item.id } })}>
+      <View>
+        <Text style={styles.cardTitle}>{formatDateLabel(item.performedAt)}</Text>
+        <Text style={styles.cardSub}>{item.title}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={styles.meta}>{item.totalSets} sets</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
+        <Text style={styles.title}>History</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <FlatList
+        data={workouts}
+        keyExtractor={item => item.id}
+        renderItem={renderItem}
         contentContainerStyle={styles.content}
-      >
-        <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-          <Text style={styles.title}>History</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/progress')}>
-            <Ionicons name="stats-chart" size={22} color={colors.muted} />
-          </TouchableOpacity>
-        </View>
-
-        {!workouts.length ? (
-          <Card>
-            <Text style={styles.emptyTitle}>No sessions yet</Text>
-            <Text style={styles.emptySubtitle}>Start logging workouts to build your history.</Text>
-          </Card>
-        ) : (
-          workouts.map((workout) => (
-            <TouchableOpacity
-              key={workout.id}
-              style={styles.card}
-              onPress={() => router.push(`/history/detail?id=${workout.id}`)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.row}>
-                <View style={styles.rowLeft}>
-                  <Ionicons name="calendar-outline" size={18} color={colors.text} />
-                  <View>
-                    <Text style={styles.cardTitle}>{formatDateLabel(workout.performedAt)}</Text>
-                    <Text style={styles.cardSubtitle}>{workout.title}</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-              </View>
-
-              <View style={styles.metaRow}>
-                <Text style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={14} color={colors.muted} />{' '}
-                  {formatDuration(workout.durationMinutes)}
-                </Text>
-                <Text style={styles.metaItem}>
-                  <Ionicons name="stats-chart" size={14} color={colors.muted} /> {formatNumber(workout.totalVolume)} kg
-                </Text>
-                <Text style={styles.metaItem}>
-                  <Ionicons name="barbell-outline" size={14} color={colors.muted} /> {workout.totalSets} sets
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="time-outline" size={48} color={colors.muted} />
+            <Text style={styles.empty}>No workouts yet.</Text>
+          </View>
+        }
+      />
     </View>
   );
 }
 
-function formatNumber(num: number) {
-  return new Intl.NumberFormat().format(Math.round(num));
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 80,
-  },
-  headerBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  backButton: {
-    marginRight: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  metaItem: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: colors.background, paddingTop: 50 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center', borderBottomWidth: 1, borderColor: colors.border },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  content: { padding: 20 },
+  emptyContainer: { alignItems: 'center', marginTop: 60, gap: 10 },
+  empty: { textAlign: 'center', color: colors.muted, fontSize: 16 },
+  card: { backgroundColor: colors.card, padding: 16, borderRadius: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  cardSub: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  meta: { color: colors.muted, marginRight: 8, fontSize: 12 }
 });

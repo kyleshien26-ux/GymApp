@@ -1,252 +1,104 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
-import { exerciseDatabase, getAllMuscleGroups, searchExercises, getExercisesByMuscleGroup, type Exercise } from '../../constants/exercises';
+import { getExercisesByMuscleGroup, searchExercises, getAllMuscleGroups } from '../../constants/exercises';
 
 export default function ExercisesList() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [selectedMuscle, setSelectedMuscle] = useState('All');
 
-  const muscleGroups = getAllMuscleGroups();
+  const muscles = ['All', ...getAllMuscleGroups()];
 
+  // FILTER LOGIC
   const filteredExercises = useMemo(() => {
-    if (searchQuery.trim()) {
-      return searchExercises(searchQuery);
-    }
-    if (selectedMuscle) {
-      return getExercisesByMuscleGroup(selectedMuscle as any);
-    }
-    return exerciseDatabase;
+    if (searchQuery.trim()) return searchExercises(searchQuery);
+    return getExercisesByMuscleGroup(selectedMuscle);
   }, [searchQuery, selectedMuscle]);
+
+  const showTips = (ex: any) => {
+    Alert.alert(
+      ex.name,
+      `${ex.tips || 'No specific tips available for this exercise.'}\n\nBiomechanics: ${ex.movementPlane}`,
+      [{ text: 'Got it' }]
+    );
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Exercises</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text}/></TouchableOpacity>
+        <Text style={styles.title}>Exercise Library</Text>
+        <View style={{width: 24}}/>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color={colors.muted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search exercises..."
-          placeholderTextColor={colors.muted}
+      {/* SEARCH */}
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={20} color={colors.muted} />
+        <TextInput 
+          style={styles.input} 
+          placeholder="Search exercises..." 
           value={searchQuery}
-          onChangeText={(text) => {
-            setSearchQuery(text);
-            if (text) setSelectedMuscle(null);
-          }}
+          onChangeText={setSearchQuery} 
+          autoFocus={false}
         />
-        {searchQuery ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color={colors.muted} />
-          </TouchableOpacity>
-        ) : null}
       </View>
 
-      {/* Muscle Group Filters */}
-      {!searchQuery && (
-        <ScrollView
+      {/* MUSCLE TABS */}
+      <View style={{height: 50}}>
+        <FlatList
+          data={muscles}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.muscleScroll}
-          style={styles.muscleFilterContainer}
-        >
-          <TouchableOpacity
-            style={[styles.musclePill, !selectedMuscle && styles.musclePillActive]}
-            onPress={() => setSelectedMuscle(null)}
-          >
-            <Text style={[styles.musclePillText, !selectedMuscle && styles.musclePillTextActive]}>
-              All
-            </Text>
-          </TouchableOpacity>
-          {muscleGroups.map((muscle) => {
-            const isActive = selectedMuscle === muscle;
-            return (
-              <TouchableOpacity
-                key={muscle}
-                style={[styles.musclePill, isActive && styles.musclePillActive]}
-                onPress={() => setSelectedMuscle(muscle)}
-              >
-                <Text style={[styles.musclePillText, isActive && styles.musclePillTextActive]}>
-                  {muscle}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+          contentContainerStyle={{paddingHorizontal: 20, gap: 10}}
+          renderItem={({item}) => (
+            <TouchableOpacity 
+              style={[styles.chip, selectedMuscle === item && styles.chipActive]} 
+              onPress={() => setSelectedMuscle(item)}
+            >
+              <Text style={[styles.chipText, selectedMuscle === item && styles.chipTextActive]}>{item}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.resultCount}>{filteredExercises.length} exercises</Text>
-        {filteredExercises.map((exercise) => (
-          <View key={exercise.id} style={styles.exerciseItem}>
-            <View style={styles.exerciseInfo}>
-              <Text style={styles.exerciseName}>{exercise.name}</Text>
-              <View style={styles.exerciseMeta}>
-                <Text style={styles.exerciseMuscle}>{exercise.muscleGroup}</Text>
-                <View style={styles.dot} />
-                <Text style={styles.exerciseCategory}>
-                  {exercise.category === 'compound' ? 'Compound' : 'Isolation'}
-                </Text>
+      {/* LIST */}
+      <FlatList
+        data={filteredExercises}
+        contentContainerStyle={{padding: 20}}
+        keyExtractor={item => item.id}
+        renderItem={({item}) => (
+          <TouchableOpacity style={styles.card} onPress={() => showTips(item)}>
+            <View>
+              <View style={{flexDirection:'row', gap: 6, alignItems:'center'}}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                {item.tier === 'S' && <View style={styles.badge}><Text style={styles.badgeText}>S-TIER</Text></View>}
               </View>
+              <Text style={styles.cardSub}>{item.muscleGroup} • {item.target}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </View>
-        ))}
-        {filteredExercises.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="search" size={40} color={colors.muted} />
-            <Text style={styles.emptyText}>No exercises found</Text>
-          </View>
+            <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
         )}
-      </ScrollView>
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 12,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginHorizontal: 20,
-    marginVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 15,
-    paddingVertical: 12,
-  },
-  muscleFilterContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  muscleScroll: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  musclePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  musclePillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  musclePillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  musclePillTextActive: {
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  resultCount: {
-    fontSize: 13,
-    color: colors.muted,
-    marginVertical: 12,
-  },
-  exerciseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 8,
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  exerciseMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  exerciseMuscle: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: colors.muted,
-  },
-  exerciseCategory: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: colors.muted,
-    marginTop: 12,
-  },
+  container: { flex: 1, backgroundColor: colors.background, paddingTop: 50 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center' },
+  title: { fontSize: 20, fontWeight: 'bold' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', margin: 20, marginTop: 0, padding: 12, borderRadius: 12 },
+  input: { marginLeft: 10, flex: 1, fontSize: 16 },
+  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', height: 36 },
+  chipActive: { backgroundColor: colors.primary },
+  chipText: { fontWeight: '600', color: colors.text },
+  chipTextActive: { color: '#fff' },
+  card: { backgroundColor: colors.card, padding: 16, borderRadius: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  cardSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  badge: { backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { fontSize: 10, fontWeight: 'bold', color: '#166534' }
 });

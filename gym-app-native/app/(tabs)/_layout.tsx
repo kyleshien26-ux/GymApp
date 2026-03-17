@@ -23,15 +23,6 @@ export default function TabLayout() {
         }} 
       />
       <Tabs.Screen 
-        name="workouts" 
-        options={{ 
-          title: 'Workouts',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" size={size} color={color} />
-          ),
-        }} 
-      />
-      <Tabs.Screen 
         name="templates" 
         options={{ 
           title: 'Templates',
@@ -41,13 +32,22 @@ export default function TabLayout() {
         }} 
       />
       <Tabs.Screen
-        name="aiplan"
+        name="autoplan"
         options={{
           title: 'Planner',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles" size={size} color={color} />
+            <Ionicons name="options" size={size} color={color} />
           ),
         }}
+      />
+      <Tabs.Screen 
+        name="nutrition" 
+        options={{ 
+          title: 'Nutrition',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="restaurant" size={size} color={color} />
+          ),
+        }} 
       />
       <Tabs.Screen 
         name="profile" 

@@ -1,261 +1,243 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useWorkouts } from '../../providers/WorkoutsProvider';
+import { Template } from '../../types/workouts';
+import { PromptModal } from '../../components/ui';
 
 export default function Templates() {
   const router = useRouter();
-  const { templates, deleteTemplate } = useWorkouts();
+  const { templates, workouts, deleteTemplate, togglePinTemplate, updateTemplate, refresh } = useWorkouts();
+  const [folderModalVisible, setFolderModalVisible] = useState(false);
+  const [templateToMove, setTemplateToMove] = useState<Template | null>(null);
+
+  // Force refresh when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [])
+  );
+
+  // --- SEQUENTIAL ROTATION LOGIC ---
+  const { folders, folderStates } = useMemo(() => {
+    // 1. Group Templates
+    const grouped: Record<string, Template[]> = {};
+    const unorganized: Template[] = [];
+
+    templates.forEach(t => {
+      if (t.folder) {
+        if (!grouped[t.folder]) grouped[t.folder] = [];
+        grouped[t.folder].push(t);
+      } else {
+        unorganized.push(t);
+      }
+    });
+
+    // 2. Determine Next Up per Folder
+    const states = new Map<string, { nextId: string, lastDoneId: string | null, lastDoneTime: number }>();
+
+    Object.keys(grouped).forEach(folder => {
+      // Sort alphabetically to ensure deterministic order (A -> B -> C)
+      const folderTemplates = grouped[folder].sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Find the *single most recent* workout that matches ANY template in this folder
+      let lastMatchTs = 0;
+      let lastMatchTemplateIndex = -1;
+
+      workouts.forEach(w => {
+        const cleanTitle = w.title.replace(/\[Auto\] /gi, '').trim().toLowerCase();
+        
+        // check if this workout matches any template in the folder
+        const matchIdx = folderTemplates.findIndex(t => {
+            const cleanName = t.name.replace(/\[Auto\] /gi, '').trim().toLowerCase();
+            return cleanName === cleanTitle;
+        });
+
+        if (matchIdx !== -1) {
+            // Found a match. Is it newer than what we have?
+            if (w.performedAt > lastMatchTs) {
+                lastMatchTs = w.performedAt;
+                lastMatchTemplateIndex = matchIdx;
+            }
+        }
+      });
+
+      // Calculate Next
+      let nextId = folderTemplates[0].id; // Default to first
+      let lastDoneId = null;
+
+      if (lastMatchTemplateIndex !== -1) {
+          lastDoneId = folderTemplates[lastMatchTemplateIndex].id;
+          const nextIndex = (lastMatchTemplateIndex + 1) % folderTemplates.length;
+          nextId = folderTemplates[nextIndex].id;
+      }
+
+      states.set(folder, { nextId, lastDoneId, lastDoneTime: lastMatchTs });
+    });
+
+    return { 
+      folders: Object.keys(grouped).sort(), 
+      grouped, 
+      unorganized,
+      folderStates: states
+    };
+  }, [workouts, templates]);
+
+  const handleStart = (templateId: string) => {
+    router.push({ pathname: '/log-workout', params: { templateId } });
+  };
+
+  const handleDeleteFolder = (folderName: string) => {
+    Alert.alert(
+      'Delete Plan',
+      `Are you sure you want to delete the entire "${folderName}" plan?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            const toDelete = templates.filter(t => t.folder === folderName);
+            toDelete.forEach(t => deleteTemplate(t.id));
+          }
+        }
+      ]
+    );
+  };
+
+  const onFolderSubmit = (folderName: string) => {
+    if (templateToMove) {
+      updateTemplate(templateToMove.id, { ...templateToMove, folder: folderName.trim() || undefined });
+    }
+    setFolderModalVisible(false);
+    setTemplateToMove(null);
+  };
+
+  const renderTemplateCard = (t: Template, state?: { nextId: string, lastDoneId: string | null, lastDoneTime: number }) => {
+    const isNext = state ? t.id === state.nextId : false;
+    const isLastDone = state ? t.id === state.lastDoneId : false;
+
+    return (
+      <TouchableOpacity 
+        key={t.id} 
+        onPress={() => handleStart(t.id)}
+        style={[styles.card, isNext && styles.cardNext]}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.cardTitle}>{t.name}</Text>
+            {isNext && (
+               <View style={styles.nextBadge}>
+                 <Text style={styles.nextText}>Next Up</Text>
+               </View>
+            )}
+            {isLastDone && (
+               <View style={styles.doneBadge}>
+                 <Ionicons name="checkmark" size={12} color="#fff"/>
+                 <Text style={styles.doneText}>Just Done</Text>
+               </View>
+            )}
+          </View>
+          <Text style={styles.cardSub}>{t.exercises.length} Exercises</Text>
+        </View>
+        
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => togglePinTemplate(t.id)} style={styles.iconBtn}>
+            <Ionicons name={t.isPinned ? "pin" : "pin-outline"} size={20} color={t.isPinned ? colors.primary : colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/templates/edit', params: { templateId: t.id } })} style={styles.iconBtn}>
+            <Ionicons name="pencil-outline" size={20} color={colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setTemplateToMove(t); setFolderModalVisible(true); }} style={styles.iconBtn}>
+            <Ionicons name="folder-outline" size={20} color={colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleStart(t.id)} style={[styles.btnStart, isNext && {backgroundColor: '#10b981'}]}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Start</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => deleteTemplate(t.id)} style={styles.iconBtn}>
+            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Templates</Text>
-            <Text style={styles.subtitle}>Quick start workout routines</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/templates/edit')}
-          >
-            <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>My Templates</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/templates/edit')}>
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
-        {templates.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons
-              name="document-outline"
-              size={48}
-              color={colors.muted}
-              style={{ marginBottom: 12 }}
-            />
-            <Text style={styles.emptyTitle}>No templates yet</Text>
-            <Text style={styles.emptyDescription}>
-              Create your first workout template to save time logging sessions
-            </Text>
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => router.push('/templates/edit')}
-            >
-              <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.createButtonText}>Create Template</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionLabel}>Your Templates</Text>
-            {templates.map((template) => (
-              <View key={template.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={styles.cardTitle}>{template.name}</Text>
-                    <Text style={styles.cardDescription}>{template.description || 'No description'}</Text>
-                  </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        {folders.map(folder => {
+          const state = folderStates.get(folder);
+          // @ts-ignore
+          const list = templates.filter(t => t.folder === folder).sort((a,b) => a.name.localeCompare(b.name));
+
+          return (
+            <View key={folder} style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={{flexDirection:'row', alignItems:'center'}}>
+                    <Ionicons name="folder-open" size={18} color="#fbbf24" />
+                    <Text style={styles.sectionTitle}>{folder}</Text>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.exerciseLink}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.exerciseCount}>{template.exercises.length} exercises</Text>
+                <TouchableOpacity onPress={() => handleDeleteFolder(folder)} style={{padding: 4}}>
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 </TouchableOpacity>
-
-                {template.exercises.length ? (
-                  <View style={styles.previewList}>
-                    {template.exercises.slice(0, 3).map((exercise) => (
-                      <Text key={exercise.id} style={styles.previewItem}>
-                        • {exercise.name}
-                      </Text>
-                    ))}
-                    {template.exercises.length > 3 && (
-                      <Text style={styles.previewItem}>
-                        • +{template.exercises.length - 3} more
-                      </Text>
-                    )}
-                  </View>
-                ) : null}
-
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={() => router.push({
-                      pathname: '/templates/edit',
-                      params: { templateId: template.id }
-                    })}
-                  >
-                    <Text style={styles.secondaryButtonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => {
-                      Alert.alert(
-                        'Delete Template',
-                        `Delete "${template.name}"?`,
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: async () => {
-                              await deleteTemplate(template.id);
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={colors.muted} />
-                  </TouchableOpacity>
-                </View>
               </View>
-            ))}
-          </>
+              {list.map(t => renderTemplateCard(t, state))}
+            </View>
+          );
+        })}
+
+        {/* Unorganized */}
+        {useMemo(() => templates.filter(t => !t.folder), [templates]).length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { marginLeft: 0 }]}>Other Templates</Text>
+            {templates.filter(t => !t.folder).map(t => renderTemplateCard(t))}
+          </View>
         )}
       </ScrollView>
+
+      <PromptModal 
+        visible={folderModalVisible}
+        title="Move to Folder"
+        message="Enter folder name:"
+        defaultValue={templateToMove?.folder}
+        onCancel={() => { setFolderModalVisible(false); setTemplateToMove(null); }}
+        onSubmit={onFolderSubmit}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 70,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  createButton: {
-    flexDirection: 'row',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  createButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  cardDescription: {
-    marginTop: 4,
-    fontSize: 13,
-    color: colors.muted,
-  },
-  exerciseLink: {
-    marginTop: 10,
-  },
-  exerciseCount: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  previewList: {
-    marginTop: 8,
-  },
-  previewItem: {
-    fontSize: 13,
-    color: colors.text,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-  },
-  secondaryButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 20, paddingTop: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: '800', color: colors.text },
+  addBtn: { backgroundColor: colors.primary, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  content: { padding: 20 },
+  section: { marginBottom: 24 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginLeft: 8 },
+  card: { backgroundColor: colors.card, padding: 16, borderRadius: 12, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  cardNext: { borderColor: '#10b981', borderWidth: 1.5, backgroundColor: '#ecfdf5' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  cardSub: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconBtn: { padding: 4 },
+  btnStart: { backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  nextBadge: { backgroundColor: '#10b981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  nextText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  doneBadge: { backgroundColor: colors.muted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection:'row', alignItems:'center', gap:4 },
+  doneText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  emptyContainer: { alignItems: 'center', marginTop: 80 },
+  empty: { textAlign: 'center', color: colors.muted, marginTop: 16, fontSize: 16 },
+  emptyBtn: { marginTop: 20, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  emptyBtnText: { color: '#fff', fontWeight: 'bold' }
 });

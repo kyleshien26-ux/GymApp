@@ -19,14 +19,14 @@ export default function Preferences() {
 
   const [restTimer, setRestTimer] = useState(settings.preferences.defaultRestTimer);
   const [units, setUnits] = useState<'kg' | 'lbs'>(settings.preferences.units);
-  const [rpeEnabled, setRpeEnabled] = useState(settings.preferences.rpeEnabled);
-  const [autoIncrement, setAutoIncrement] = useState(settings.preferences.autoIncrement);
+  const [rpeEnabled, setRpeEnabled] = useState(!!settings.preferences.rpeEnabled);
+  const [autoIncrement, setAutoIncrement] = useState(!!settings.preferences.autoIncrement);
 
   useEffect(() => {
     setRestTimer(settings.preferences.defaultRestTimer);
     setUnits(settings.preferences.units);
-    setRpeEnabled(settings.preferences.rpeEnabled);
-    setAutoIncrement(settings.preferences.autoIncrement);
+    setRpeEnabled(!!settings.preferences.rpeEnabled);
+    setAutoIncrement(!!settings.preferences.autoIncrement);
   }, [settings.preferences]);
 
   const handleSave = async () => {

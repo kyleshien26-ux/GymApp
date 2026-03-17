@@ -1,77 +1,39 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSettings } from '../../providers/SettingsProvider';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
-
-const BORDER = '#e5e7eb';
-const MUTED = '#475467';
+import { useSettings } from '../../providers/SettingsProvider';
 
 export default function Records() {
-  const { settings } = useSettings();
   const router = useRouter();
-
-  const sortedPRs = useMemo(() => {
-    return Object.entries(settings.personalRecords)
-      .map(([exerciseName, prData]) => ({
-        name: exerciseName.charAt(0).toUpperCase() + exerciseName.slice(1),
-        ...prData,
-      }))
-      .sort((a, b) => b.estimated1RM - a.estimated1RM);
-  }, [settings.personalRecords]);
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const { settings } = useSettings();
+  const prs = settings.personalRecords || {};
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={{marginRight: 12}}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Personal Records</Text>
-          <Ionicons name="trophy-outline" size={22} color="#f59e0b" />
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Personal Records</Text>
+        <View style={{ width: 24 }} />
+      </View>
 
-        {sortedPRs.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons
-              name="trophy-outline"
-              size={48}
-              color={MUTED}
-              style={{ marginBottom: 12 }}
-            />
-            <Text style={styles.emptyTitle}>No Records Yet</Text>
-            <Text style={styles.emptyDescription}>
-              Start logging workouts to track your personal records
-            </Text>
-          </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        {Object.keys(prs).length === 0 ? (
+          <Text style={styles.empty}>No records yet. Log a workout!</Text>
         ) : (
-          sortedPRs.map((pr) => (
-            <View key={pr.name} style={styles.card}>
-              <Text style={styles.cardTitle}>{pr.name}</Text>
-              <View style={styles.valueRow}>
-                <Text style={styles.value}>{pr.estimated1RM}</Text>
-                <Text style={styles.unit}>kg (1RM)</Text>
+          Object.entries(prs).map(([name, record]) => (
+            <View key={name} style={styles.row}>
+              <View>
+                <Text style={styles.exName}>{name.charAt(0).toUpperCase() + name.slice(1)}</Text>
+                <Text style={styles.date}>{new Date(record.date).toLocaleDateString()}</Text>
               </View>
-              <View style={styles.linkRow}>
-                <Text style={styles.link}>
-                  {pr.weight} kg × {pr.reps} rep{pr.reps !== 1 ? 's' : ''}
-                </Text>
-                <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+              <View style={styles.badge}>
+                <Text style={styles.weight}>{record.estimated1RM}kg</Text>
+                <Text style={styles.sub}>Est. 1RM</Text>
               </View>
-              <Text style={styles.date}>{formatDate(pr.date)}</Text>
             </View>
           ))
         )}
@@ -81,83 +43,15 @@ export default function Records() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f7fb',
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 60,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 6,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 8,
-  },
-  value: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  unit: {
-    fontSize: 13,
-    color: MUTED,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  link: {
-    color: '#2563ff',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  date: {
-    fontSize: 12,
-    color: MUTED,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: MUTED,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, paddingTop: 60, alignItems: 'center', backgroundColor: colors.card },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  content: { padding: 20 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, backgroundColor: colors.card, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+  exName: { fontSize: 16, fontWeight: '600', color: colors.text },
+  date: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  badge: { alignItems: 'flex-end' },
+  weight: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  sub: { fontSize: 10, color: colors.muted },
+  empty: { textAlign: 'center', color: colors.muted, marginTop: 40 }
 });

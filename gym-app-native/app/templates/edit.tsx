@@ -88,7 +88,7 @@ export default function EditTemplate() {
           exercises: selectedExercises.map((ex) => ({
             id: ex.id,
             name: ex.name,
-            sets: [],
+            sets: [], // Template exercises start with no sets
           })),
         };
         await updateTemplate(templateId, updatedTemplate);
@@ -235,7 +235,6 @@ export default function EditTemplate() {
                 placeholderTextColor={colors.muted}
                 value={searchText}
                 onChangeText={setSearchText}
-                autoFocus
               />
             </View>
 

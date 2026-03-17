@@ -8,7 +8,9 @@ import {
   Alert,
   Platform,
   Modal,
+  Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -19,39 +21,33 @@ import { colors } from '../../constants/colors';
 export default function DataManagement() {
   const router = useRouter();
   const { workouts, templates, clearStore } = useWorkouts();
-  const { exportData, importData } = useSettings();
+  const { exportData, importData, clearStore: clearSettings } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-      window.alert(title + '\n\n' + message);
-    } else {
-      Alert.alert(title, message);
-    }
-  };
-
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const csv = await exportData();
+      const json = await exportData();
       
       if (Platform.OS === 'web') {
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'gymapp_export_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.download = 'gymapp_export.json';
         a.click();
         URL.revokeObjectURL(url);
-        showAlert('Success', 'Data exported successfully!');
       } else {
-        showAlert('Export Ready', 'CSV data has been prepared.');
+        await Share.share({
+            message: json,
+            title: 'GymApp Backup'
+        });
       }
     } catch (error) {
-      showAlert('Error', 'Failed to export data. Please try again.');
+      Alert.alert('Error', 'Failed to export data. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -60,7 +56,7 @@ export default function DataManagement() {
   const handleImport = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'application/json', 'text/plain'],
+        type: ['application/json', 'text/plain'],
       });
 
       if (result.canceled) return;
@@ -72,49 +68,44 @@ export default function DataManagement() {
       
       const success = await importData(text);
       if (success) {
-        showAlert('Success', 'Data imported successfully. Please restart the app to see changes.');
+        Alert.alert('Success', 'Data imported successfully. Please restart the app.');
       } else {
-        showAlert('Error', 'Invalid file format. Please use a valid CSV or JSON file.');
+        Alert.alert('Error', 'Invalid file format.');
       }
     } catch (error) {
-      showAlert('Error', 'Failed to import data. Please try again.');
+      Alert.alert('Error', 'Failed to import data.');
     } finally {
       setIsImporting(false);
     }
   };
 
   const handleResetData = () => {
-    console.log("[TRACE] handleResetData called, Platform:", Platform.OS);
-    if (Platform.OS === 'web') {
-      setShowDeleteModal(true);
-    } else {
-      Alert.alert(
-        'Clear All Data',
-        'Are you sure you want to delete all ' + workouts.length + ' workouts and ' + templates.length + ' templates? This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
-        ]
-      );
-    }
+    Alert.alert(
+      'Reset App',
+      'This will delete ALL data (workouts, templates, settings). This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Everything', style: 'destructive', onPress: confirmDelete },
+      ]
+    );
   };
 
   const confirmDelete = async () => {
-    console.log("[TRACE] confirmDelete called");
-    setShowDeleteModal(false);
     setIsDeleting(true);
     try {
-      console.log("[TRACE] Calling clearStore..."); await clearStore(); console.log("[TRACE] clearStore completed");
-      showAlert('Success', 'All data has been cleared!');
+      await clearStore();
+      await clearSettings();
+      Alert.alert('Reset Complete', 'App data has been cleared.');
+      router.replace('/(tabs)');
     } catch (error) {
-      showAlert('Error', 'Failed to clear data. Please try again.');
+      Alert.alert('Error', 'Failed to reset data.');
     } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={colors.primary} />
@@ -129,7 +120,7 @@ export default function DataManagement() {
       >
         {/* Data Summary */}
         <View style={styles.summarySection}>
-          <Text style={styles.sectionTitle}>Your Data</Text>
+          <Text style={styles.sectionTitle}>Current Storage</Text>
           <View style={styles.summaryCards}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryNumber}>{workouts.length}</Text>
@@ -142,21 +133,21 @@ export default function DataManagement() {
           </View>
         </View>
 
-        {/* Export/Import */}
+        {/* Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Backup & Restore</Text>
+          <Text style={styles.sectionTitle}>Actions</Text>
           
           <TouchableOpacity
             style={styles.actionButton}
             onPress={handleExport}
             disabled={isExporting}
           >
-            <Ionicons name="download-outline" size={20} color={colors.primary} />
+            <Ionicons name="share-outline" size={20} color={colors.primary} />
             <View style={styles.actionContent}>
               <Text style={styles.actionLabel}>
                 {isExporting ? 'Exporting...' : 'Export Data'}
               </Text>
-              <Text style={styles.actionDescription}>Download your workouts as CSV</Text>
+              <Text style={styles.actionDescription}>Share backup file</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
@@ -171,7 +162,7 @@ export default function DataManagement() {
               <Text style={styles.actionLabel}>
                 {isImporting ? 'Importing...' : 'Import Data'}
               </Text>
-              <Text style={styles.actionDescription}>Restore from CSV or JSON backup</Text>
+              <Text style={styles.actionDescription}>Restore from backup</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </TouchableOpacity>
@@ -184,92 +175,40 @@ export default function DataManagement() {
           <TouchableOpacity
             style={[styles.actionButton, styles.dangerButton]}
             onPress={handleResetData}
-            disabled={isDeleting || (workouts.length === 0 && templates.length === 0)}
+            disabled={isDeleting}
           >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
             <View style={styles.actionContent}>
               <Text style={styles.dangerLabel}>
-                {isDeleting ? 'Deleting...' : 'Delete All Data'}
+                {isDeleting ? 'Resetting...' : 'Reset App'}
               </Text>
-              <Text style={styles.dangerDescription}>Permanently remove all workouts and templates</Text>
+              <Text style={styles.dangerDescription}>Delete all data and settings</Text>
             </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Delete Confirmation Modal (for web) */}
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Ionicons name="warning" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
-            <Text style={styles.modalTitle}>Delete All Data?</Text>
-            <Text style={styles.modalMessage}>
-              This will permanently delete {workouts.length} workouts and {templates.length} templates. This action cannot be undone.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowDeleteModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalDeleteButton}
-                onPress={confirmDelete}
-              >
-                <Text style={styles.modalDeleteText}>Delete All</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 54,
     paddingBottom: 16,
+    paddingTop: 10,
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  summarySection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  summaryCards: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  content: { padding: 20 },
+  summarySection: { marginBottom: 24 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  summaryCards: { flexDirection: 'row', gap: 12 },
   summaryCard: {
     flex: 1,
     backgroundColor: colors.card,
@@ -279,19 +218,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  summaryNumber: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 24,
-  },
+  summaryNumber: { fontSize: 28, fontWeight: '700', color: colors.primary },
+  summaryLabel: { fontSize: 13, color: colors.muted, marginTop: 4 },
+  section: { marginBottom: 24 },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -304,87 +233,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 12,
   },
-  actionContent: {
-    flex: 1,
-  },
-  actionLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  actionDescription: {
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  dangerButton: {
-    borderColor: colors.danger,
-    backgroundColor: '#fef2f2',
-  },
-  dangerLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.danger,
-  },
-  dangerDescription: {
-    fontSize: 12,
-    color: colors.danger,
-    opacity: 0.8,
-    marginTop: 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalDeleteButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-  },
-  modalDeleteText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
+  actionContent: { flex: 1 },
+  actionLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  actionDescription: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  dangerButton: { borderColor: colors.danger, backgroundColor: '#fef2f2' },
+  dangerLabel: { fontSize: 15, fontWeight: '600', color: colors.danger },
+  dangerDescription: { fontSize: 12, color: colors.danger, opacity: 0.8, marginTop: 2 },
 });

@@ -11,44 +11,39 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSettings } from '../../providers/SettingsProvider';
+import { useSettings, MeasurementType } from '../../providers/SettingsProvider';
 import { colors } from '../../constants/colors';
 
-type MeasurementType = 'weight' | 'bodyfat' | 'chest' | 'arms' | 'waist' | 'legs';
-
 const MEASUREMENT_TYPES: { label: string; value: MeasurementType; unit: string }[] = [
-  { label: 'Weight', value: 'weight', unit: 'kg' },
-  { label: 'Body Fat %', value: 'bodyfat', unit: '%' },
-  { label: 'Chest', value: 'chest', unit: 'cm' },
-  { label: 'Arms', value: 'arms', unit: 'cm' },
-  { label: 'Waist', value: 'waist', unit: 'cm' },
-  { label: 'Legs', value: 'legs', unit: 'cm' },
+  { label: 'Weight', value: 'Weight', unit: 'kg' },
+  { label: 'Body Fat %', value: 'Body Fat', unit: '%' },
+  { label: 'Muscle Mass', value: 'Muscle Mass', unit: 'kg' },
 ];
 
 export default function Measurements() {
   const { settings, addMeasurement } = useSettings();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedType, setSelectedType] = useState<MeasurementType>('weight');
+  const [selectedType, setSelectedType] = useState<MeasurementType>('Weight');
   const [value, setValue] = useState('');
 
   const sortedMeasurements = useMemo(() => {
+    if (!Array.isArray(settings.measurements)) return [];
     return [...settings.measurements].sort((a, b) => b.date - a.date);
   }, [settings.measurements]);
 
   const latestMeasurements = useMemo(() => {
-    const latest: Record<MeasurementType, (typeof settings.measurements)[0] | null> = {
-      weight: null,
-      bodyfat: null,
-      chest: null,
-      arms: null,
-      waist: null,
-      legs: null,
+    const latest: Record<string, any> = {
+      'Weight': null,
+      'Body Fat': null,
+      'Muscle Mass': null,
     };
 
-    for (const measurement of settings.measurements) {
-      if (!latest[measurement.type as MeasurementType]) {
-        latest[measurement.type as MeasurementType] = measurement;
+    if (Array.isArray(settings.measurements)) {
+      for (const measurement of settings.measurements) {
+        if (!latest[measurement.type]) {
+          latest[measurement.type] = measurement;
+        }
       }
     }
 
@@ -90,7 +85,7 @@ export default function Measurements() {
       });
 
       setValue('');
-      setSelectedType('weight');
+      setSelectedType('Weight');
       setModalVisible(false);
       Alert.alert('Success', 'Measurement added successfully');
     } catch (err) {
@@ -108,7 +103,7 @@ export default function Measurements() {
           <TouchableOpacity onPress={() => router.back()} style={{marginRight: 12, paddingTop: 4}}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <View>
+          <View style={{flex: 1}}>
             <Text style={styles.title}>Measurements</Text>
             <Text style={styles.subtitle}>Track body metrics</Text>
           </View>
@@ -120,18 +115,18 @@ export default function Measurements() {
           </TouchableOpacity>
         </View>
 
-        {latestMeasurements.weight && (
+        {latestMeasurements['Weight'] && (
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{latestMeasurements.weight.value}</Text>
-              <Text style={styles.statLabel}>Current Weight ({latestMeasurements.weight.unit})</Text>
-              <Text style={styles.statDate}>{formatDate(latestMeasurements.weight.date)}</Text>
+              <Text style={styles.statValue}>{latestMeasurements['Weight'].value}</Text>
+              <Text style={styles.statLabel}>Current Weight ({latestMeasurements['Weight'].unit})</Text>
+              <Text style={styles.statDate}>{formatDate(latestMeasurements['Weight'].date)}</Text>
             </View>
-            {latestMeasurements.bodyfat && (
+            {latestMeasurements['Body Fat'] && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{latestMeasurements.bodyfat.value}%</Text>
+                <Text style={styles.statValue}>{latestMeasurements['Body Fat'].value}%</Text>
                 <Text style={styles.statLabel}>Body Fat</Text>
-                <Text style={styles.statDate}>{formatDate(latestMeasurements.bodyfat.date)}</Text>
+                <Text style={styles.statDate}>{formatDate(latestMeasurements['Body Fat'].date)}</Text>
               </View>
             )}
           </View>
@@ -247,6 +242,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+    marginTop: 40,
   },
   title: {
     fontSize: 26,

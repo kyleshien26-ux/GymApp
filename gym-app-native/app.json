@@ -5,9 +5,38 @@
     "scheme": "gymapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "plugins": ["expo-router"],
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e3a8a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.kyleshien.gymapp",
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1e3a8a"
+      }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6ff138c8-93ba-4b38-942a-f807aee38028"
+      }
     }
   }
 }

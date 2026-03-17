@@ -1,15 +1,10 @@
 export const colors = {
-  primary: '#2563ff',
-  border: '#e5e7eb',
-  muted: '#475467',
-  text: '#0f172a',
-  textSecondary: '#6b7280',
-  background: '#f5f7fb',
-  card: '#ffffff',
-  accent: '#6366f1',
-  success: '#22c55e',
-  warning: '#f59e0b',
-  danger: '#ef4444',
+  primary: '#1e3a8a', // Darker Blue (Blue 900)
+  background: '#ffffff', // Clean white
+  card: '#f8fafc', // Light slate for subtle card definition
+  text: '#0f172a', // Near black slate
+  muted: '#64748b', // Standard muted slate
+  border: '#e2e8f0',
+  success: '#15803d', // Deeper green
+  danger: '#b91c1c'  // Deeper red
 };
-
-export type ColorName = keyof typeof colors;
