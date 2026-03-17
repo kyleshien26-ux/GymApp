@@ -229,6 +229,9 @@ export default function LogWorkout() {
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.title}>Log Workout</Text>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+            <TouchableOpacity onPress={() => router.push('/plate-calculator')}>
+                <Ionicons name="calculator-outline" size={22} color={colors.text} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleDiscard} style={styles.discardButton}>
                 <Ionicons name="trash-outline" size={22} color={colors.danger} />
             </TouchableOpacity>

@@ -29,9 +29,18 @@ export default function Dashboard() {
     useCallback(() => {
       setStats(getStats(workouts));
       setRecentWorkouts(getRecentWorkouts(workouts));
-      AsyncStorage.getItem(DRAFT_KEY).then(d => setHasDraft(!!d));
+      const checkDraft = async () => {
+        const d = await AsyncStorage.getItem(DRAFT_KEY);
+        setHasDraft(!!d);
+      };
+      checkDraft();
     }, [workouts])
   );
+
+  const discardDraft = async () => {
+    await AsyncStorage.removeItem(DRAFT_KEY);
+    setHasDraft(false);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -81,11 +90,16 @@ export default function Dashboard() {
                 style={[styles.section, {backgroundColor: colors.primary, borderRadius: 16, padding: 16, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}]}
                 onPress={() => router.push('/log-workout')}
             >
-                <View>
+                <View style={{flex: 1}}>
                     <Text style={{color:'#fff', fontWeight:'bold', fontSize: 16}}>Resume Workout</Text>
                     <Text style={{color:'rgba(255,255,255,0.8)', fontSize: 12}}>You have an unsaved session</Text>
                 </View>
-                <Ionicons name="arrow-forward-circle" size={32} color="#fff" />
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 16}}>
+                    <TouchableOpacity onPress={discardDraft} style={{padding: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20}}>
+                        <Ionicons name="trash-outline" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <Ionicons name="arrow-forward-circle" size={32} color="#fff" />
+                </View>
             </TouchableOpacity>
         )}
 

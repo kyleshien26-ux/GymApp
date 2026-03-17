@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
@@ -9,7 +9,7 @@ import { useSettings } from '../../providers/SettingsProvider';
 export default function HistoryDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { workouts } = useWorkouts();
+  const { workouts, deleteWorkout } = useWorkouts();
   
   const workout = workouts.find(w => w.id === id);
 
@@ -22,12 +22,32 @@ export default function HistoryDetail() {
     );
   }
 
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Workout",
+      "Are you sure you want to permanently delete this workout from your history? This action cannot be undone and will remove its volume from your statistics.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+            await deleteWorkout(workout.id);
+            router.back();
+          } 
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.title}>{formatDateLabel(workout.performedAt)}</Text>
-        <View style={{width: 24}}/>
+        <TouchableOpacity onPress={handleDelete}>
+          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

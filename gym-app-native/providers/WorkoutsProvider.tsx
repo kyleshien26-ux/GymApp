@@ -10,6 +10,7 @@ type WorkoutsContextValue = {
   workouts: Workout[];
   templates: Template[];
   addWorkout: (input: NewWorkoutInput) => Promise<Workout | null>;
+  deleteWorkout: (id: string) => Promise<void>;
   addTemplate: (template: Template) => Promise<void>;
   updateTemplate: (id: string, template: Template) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
@@ -120,6 +121,16 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
     });
   };
 
+  const deleteWorkout = async (id: string) => {
+    return new Promise<void>((resolve) => {
+      setWorkouts(prev => {
+        const next = prev.filter(w => w.id !== id);
+        persist(STORAGE_KEY, next).then(resolve);
+        return next;
+      });
+    });
+  };
+
   const togglePinTemplate = async (id: string) => {
     setTemplates(prev => {
       const next = prev.map(t => t.id === id ? { ...t, isPinned: !t.isPinned } : t);
@@ -129,10 +140,12 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   };
 
   const deleteTemplate = async (id: string) => {
-    setTemplates(prev => {
-      const next = prev.filter(t => t.id !== id);
-      persist(TEMPLATES_KEY, next);
-      return next;
+    return new Promise<void>((resolve) => {
+      setTemplates(prev => {
+        const next = prev.filter(t => t.id !== id);
+        persist(TEMPLATES_KEY, next).then(resolve);
+        return next;
+      });
     });
   };
 
@@ -143,7 +156,7 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   }
 
   const value = useMemo(() => ({
-    workouts, templates, addWorkout, addTemplate, updateTemplate, deleteTemplate, togglePinTemplate, refresh, clearStore, isLoaded
+    workouts, templates, addWorkout, deleteWorkout, addTemplate, updateTemplate, deleteTemplate, togglePinTemplate, refresh, clearStore, isLoaded
   }), [workouts, templates, isLoaded]);
 
   return <WorkoutsContext.Provider value={value}>{children}</WorkoutsContext.Provider>;
