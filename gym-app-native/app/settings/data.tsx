@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useWorkouts } from '../../providers/WorkoutsProvider';
 import { useSettings } from '../../providers/SettingsProvider';
 import { colors } from '../../constants/colors';
@@ -41,10 +43,19 @@ export default function DataManagement() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        await Share.share({
-            message: json,
-            title: 'GymApp Backup'
-        });
+        const fileUri = `${FileSystem.documentDirectory}gymapp_export.json`;
+        await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+        
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+            await Sharing.shareAsync(fileUri, {
+                mimeType: 'application/json',
+                dialogTitle: 'GymApp Backup',
+                UTI: 'public.json'
+            });
+        } else {
+            Alert.alert('Error', 'Sharing is not available on this device.');
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to export data. Please try again.');

@@ -164,12 +164,22 @@ export const useWorkouts = () => {
 // === HELPER FUNCTIONS ===
 export function calculateStreak(workouts: Workout[]) {
   if (!workouts.length) return 0;
-  const sorted = [...workouts].sort((a, b) => b.performedAt - a.performedAt);
-  let streak = 0;
-  const todayStart = new Date().setHours(0, 0, 0, 0);
-  const firstDate = new Date(sorted[0].performedAt).setHours(0,0,0,0);
-  if (firstDate === todayStart) streak = 1;
-  return streak > 0 ? streak : (workouts.length > 0 ? 1 : 0);
+  const uniqueDates = Array.from(new Set(workouts.map(w => new Date(w.performedAt).setHours(0,0,0,0))));
+  uniqueDates.sort((a, b) => b - a);
+
+  const today = new Date().setHours(0,0,0,0);
+  const yesterday = today - 86400000;
+  
+  if (uniqueDates[0] < yesterday) return 0; 
+
+  let streak = 1;
+  for (let i = 0; i < uniqueDates.length - 1; i++) {
+      const curr = uniqueDates[i];
+      const prev = uniqueDates[i+1];
+      if (curr - prev === 86400000) streak++;
+      else break;
+  }
+  return streak;
 }
 
 export function getStats(workouts: Workout[]) {
