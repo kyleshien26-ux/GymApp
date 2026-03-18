@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
@@ -23,24 +23,11 @@ export default function HistoryDetail() {
     );
   }
 
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Workout",
-      "Are you sure you want to permanently delete this workout from your history? This action cannot be undone and will remove its volume from your statistics.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: async () => {
-            const nextWorkouts = workouts.filter(w => w.id !== workout.id);
-            await deleteWorkout(workout.id);
-            await recalculatePersonalRecords(nextWorkouts);
-            router.back();
-          } 
-        }
-      ]
-    );
+  const handleDelete = async () => {
+    const nextWorkouts = workouts.filter(w => w.id !== workout.id);
+    await deleteWorkout(workout.id);
+    await recalculatePersonalRecords(nextWorkouts);
+    router.back();
   };
 
   return (

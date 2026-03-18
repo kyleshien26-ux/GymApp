@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
@@ -89,21 +89,8 @@ export default function Templates() {
     router.push({ pathname: '/log-workout', params: { templateId } });
   };
 
-  const handleDeleteFolder = (folderName: string) => {
-    Alert.alert(
-      'Delete Plan',
-      `Are you sure you want to delete the entire "${folderName}" plan?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: async () => {
-            await deleteFolder(folderName);
-          }
-        }
-      ]
-    );
+  const handleDeleteFolder = async (folderName: string) => {
+    await deleteFolder(folderName);
   };
 
   const onFolderSubmit = (folderName: string) => {
@@ -155,7 +142,10 @@ export default function Templates() {
           <TouchableOpacity onPress={() => handleStart(t.id)} style={[styles.btnStart, isNext && {backgroundColor: '#10b981'}]}>
             <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Start</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => deleteTemplate(t.id)} style={styles.iconBtn}>
+          <TouchableOpacity 
+            onPress={() => deleteTemplate(t.id)} 
+            style={styles.iconBtn}
+          >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
           </TouchableOpacity>
         </View>

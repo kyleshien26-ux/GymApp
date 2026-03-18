@@ -80,6 +80,12 @@ export default function DataManagement() {
   };
 
   const handleResetData = () => {
+    if (Platform.OS === 'web') {
+      const confirm = window.confirm('This will delete ALL data (workouts, templates, settings). This cannot be undone. Are you sure?');
+      if (confirm) confirmDelete();
+      return;
+    }
+
     Alert.alert(
       'Reset App',
       'This will delete ALL data (workouts, templates, settings). This cannot be undone.',

@@ -107,63 +107,39 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   }, []); // removed dependency on workouts to avoid stale closures
 
   const addTemplate = async (t: Template) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = [t, ...prev];
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = [t, ...templates];
+    setTemplates(next);
+    await persist(TEMPLATES_KEY, next);
   };
 
   const updateTemplate = async (id: string, t: Template) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = prev.map(temp => temp.id === id ? t : temp);
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = templates.map(temp => temp.id === id ? t : temp);
+    setTemplates(next);
+    await persist(TEMPLATES_KEY, next);
   };
 
   const deleteWorkout = async (id: string) => {
-    return new Promise<void>((resolve) => {
-      setWorkouts(prev => {
-        const next = prev.filter(w => w.id !== id);
-        persist(STORAGE_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = workouts.filter(w => w.id !== id);
+    setWorkouts(next);
+    await persist(STORAGE_KEY, next);
   };
 
   const togglePinTemplate = async (id: string) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = prev.map(t => t.id === id ? { ...t, isPinned: !t.isPinned } : t);
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = templates.map(t => t.id === id ? { ...t, isPinned: !t.isPinned } : t);
+    setTemplates(next);
+    await persist(TEMPLATES_KEY, next);
   };
 
   const deleteTemplate = async (id: string) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = prev.filter(t => t.id !== id);
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = templates.filter(t => t.id !== id);
+    setTemplates(next);
+    await persist(TEMPLATES_KEY, next);
   };
 
   const deleteFolder = async (folderName: string) => {
-    return new Promise<void>((resolve) => {
-      setTemplates(prev => {
-        const next = prev.filter(t => t.folder !== folderName);
-        persist(TEMPLATES_KEY, next).then(resolve);
-        return next;
-      });
-    });
+    const next = templates.filter(t => t.folder !== folderName);
+    setTemplates(next);
+    await persist(TEMPLATES_KEY, next);
   };
 
   const clearStore = async () => {
