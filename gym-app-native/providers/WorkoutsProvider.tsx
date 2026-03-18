@@ -107,9 +107,11 @@ export const WorkoutsProvider = React.memo(function WorkoutsProvider({ children 
   }, []); // removed dependency on workouts to avoid stale closures
 
   const addTemplate = async (t: Template) => {
-    const next = [t, ...templates];
-    setTemplates(next);
-    await persist(TEMPLATES_KEY, next);
+    setTemplates(prev => {
+      const next = [t, ...prev];
+      persist(TEMPLATES_KEY, next);
+      return next;
+    });
   };
 
   const updateTemplate = async (id: string, t: Template) => {

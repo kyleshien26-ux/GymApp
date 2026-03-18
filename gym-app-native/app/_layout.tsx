@@ -1,10 +1,16 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { WorkoutsProvider, useWorkouts } from '../providers/WorkoutsProvider';
-import { SettingsProvider, useSettings } from '../providers/SettingsProvider';
+import { WorkoutsProvider } from '../providers/WorkoutsProvider';
+import { SettingsProvider } from '../providers/SettingsProvider';
 import { useEffect } from 'react';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
-import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding before asset loading is complete
+SplashScreen.preventAutoHideAsync();
 
 // Global Error Boundary for Expo Router
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
@@ -19,35 +25,33 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
   );
 }
 
-function AppContent() {
-  const { isLoaded: workoutsLoaded } = useWorkouts();
-  const { isLoaded: settingsLoaded } = useSettings();
-
-  if (!workoutsLoaded || !settingsLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#1e40af" />
-      </View>
-    );
-  }
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="log-workout/index" />
-    </Stack>
-  );
-}
-
 export default function RootLayout() {
+  const [loaded, error] = useFonts({
+    ...Ionicons.font,
+  });
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
   useEffect(() => {
     registerForPushNotificationsAsync();
   }, []);
 
+  if (!loaded) {
+    return null;
+  }
+
   return (
     <WorkoutsProvider>
       <SettingsProvider>
-        <AppContent />
+        <Stack screenOptions={{ headerShown: false }} />
         <StatusBar style="dark" />
       </SettingsProvider>
     </WorkoutsProvider>

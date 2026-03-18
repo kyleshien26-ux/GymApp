@@ -10,7 +10,7 @@ import { useWorkouts } from '../../providers/WorkoutsProvider';
 import { useSettings } from '../../providers/SettingsProvider';
 import { ExerciseEntry, SetEntry } from '../../types/workouts';
 import { ExercisePicker } from '../../components/ExercisePicker';
-import ExerciseCard from './exercise';
+import ExerciseCard from '../../components/LogWorkout/ExerciseCard';
 import type { Exercise } from '../../constants/exercises';
 import { scheduleRestNotification, cancelAllNotifications } from '../../lib/notifications';
 import { getRandomTip } from '../../lib/tips';
