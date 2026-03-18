@@ -127,10 +127,11 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
     }
     else {
       splitBaseName = 'Upper / Lower';
+      const balancedUpper: MovementPlane[] = ['Horizontal Push', 'Vertical Pull', 'Incline Push', 'Horizontal Pull', 'Lateral Raise', 'Elbow Extension'];
       splitStructure = [
-        { name: 'Upper A', planes: [...pushPlanes, ...pullPlanes].slice(0, 6) },
+        { name: 'Upper A', planes: balancedUpper },
         { name: 'Lower A', planes: legPlanes },
-        { name: 'Upper B', planes: [...pushPlanes, ...pullPlanes].slice(0, 6).reverse() }, 
+        { name: 'Upper B', planes: ['Vertical Push', 'Horizontal Pull', 'Horizontal Push', 'Vertical Pull', 'Rear Delt Fly', 'Elbow Flexion'] }, 
         { name: 'Lower B', planes: legPlanes }
       ];
     }
@@ -146,8 +147,9 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
       ];
     } else {
       splitBaseName = 'Upper/Lower + PPL';
+      const balancedUpper: MovementPlane[] = ['Horizontal Push', 'Vertical Pull', 'Incline Push', 'Horizontal Pull', 'Lateral Raise', 'Elbow Extension'];
       splitStructure = [
-        { name: 'Upper', planes: [...pushPlanes, ...pullPlanes].slice(0, 6) },
+        { name: 'Upper', planes: balancedUpper },
         { name: 'Lower', planes: legPlanes },
         { name: 'Push', planes: pushPlanes },
         { name: 'Pull', planes: pullPlanes },
