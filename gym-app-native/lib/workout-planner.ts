@@ -23,11 +23,9 @@ const MV = 6;
 const ZERO = 0; 
 
 export function shouldTriggerDeload(workouts: Workout[], muscle: MuscleGroup): boolean {
-  // Sort workouts newest first without mutating original array
   const sortedWorkouts = [...workouts].sort((a, b) => b.performedAt - a.performedAt);
   const history: number[] = [];
 
-  // Find last 3 compound sessions for this muscle
   for (const w of sortedWorkouts) {
     const compoundEx = w.exercises.find(ex => {
       const dbEx = exerciseDatabase.find(db => db.name === ex.name);
@@ -35,7 +33,6 @@ export function shouldTriggerDeload(workouts: Workout[], muscle: MuscleGroup): b
     });
 
     if (compoundEx && Array.isArray(compoundEx.sets) && compoundEx.sets.length > 0) {
-      // Calculate Peak E1RM for this session
       const peakE1RM = Math.max(...compoundEx.sets.map(s => s.weight * (1 + s.reps / 30)));
       history.push(peakE1RM);
     }
@@ -43,47 +40,34 @@ export function shouldTriggerDeload(workouts: Workout[], muscle: MuscleGroup): b
     if (history.length >= 3) break;
   }
 
-  // Need at least 3 sessions to detect a 2-session stall trend
   if (history.length < 3) return false;
 
-  // Check for stall: Newest (0) <= Middle (1) AND Middle (1) <= Oldest (2)
   const isStalled = history[0] <= history[1] && history[1] <= history[2];
-  
   return isStalled;
 }
 
 function getTargetSets(muscle: MuscleGroup, options: PlanningOptions, workouts: Workout[]): number {
   const { weakPoints, legPreference, maintenancePreference, mesocycleWeek = 1 } = options;
   
-  // 1. Hard Constraints
   if ((muscle === 'Legs' || muscle === 'Calves') && legPreference === 'None') return ZERO;
   if ((muscle === 'Legs' || muscle === 'Calves') && legPreference === 'Minimum') return MV;
-  
-  // 2. Deload Week (Week 5)
   if (mesocycleWeek === 5) return MV;
-
-  // 3. Auto-Regulated Deload (Performance Stall)
   if (shouldTriggerDeload(workouts, muscle)) return MV; 
-
-  // 4. Maintenance Mode
   if (maintenancePreference === 'Maintenance' && !weakPoints.includes(muscle)) return MV;
 
-  // 5. Periodization Scaling (Weeks 1-4)
   const ramp = Math.floor(MEV + ((MAV - MEV) / 3) * (mesocycleWeek - 1));
   
   if (weakPoints.includes(muscle)) {
       return Math.min(MAV, ramp + 2); 
   }
-  
   return ramp;
 }
 
-// Helper for Fractional Volume
 function getSecondaryVolume(plane: MovementPlane, muscle: MuscleGroup): number {
     if (muscle === 'Triceps' && (plane === 'Horizontal Push' || plane === 'Vertical Push' || plane === 'Incline Push')) return 0.5;
-    if (muscle === 'Shoulders' && (plane === 'Horizontal Push' || plane === 'Incline Push')) return 0.5; // Front Delt
+    if (muscle === 'Shoulders' && (plane === 'Horizontal Push' || plane === 'Incline Push')) return 0.5; 
     if (muscle === 'Biceps' && (plane === 'Vertical Pull' || plane === 'Horizontal Pull')) return 0.5;
-    if (muscle === 'Back' && plane === 'Hip Hinge') return 0.5; // Lower back in deadlifts
+    if (muscle === 'Back' && plane === 'Hip Hinge') return 0.5; 
     return 0;
 }
 
@@ -177,7 +161,6 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
   const globalHistory = new Set<string>(); 
   const weeklyMuscleSets = new Map<MuscleGroup, number>();
   
-  // Track all muscles to detect deficits later
   const allMuscles: MuscleGroup[] = ['Chest', 'Back', 'Legs', 'Shoulders', 'Biceps', 'Triceps', 'Abs', 'Calves'];
   allMuscles.forEach(m => weeklyMuscleSets.set(m, 0));
 
@@ -197,7 +180,6 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
       });
 
       if (candidates.length === 0) {
-          // Fallback: Relax constraints
           candidates = exerciseDatabase.filter(e => {
               if (e.movementPlane !== plane) return false;
               if (equipmentProfile === 'Dumbbell Only' && e.equipment === 'Machine') return false;
@@ -230,25 +212,22 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
       const targetWeekly = getTargetSets(selected.muscleGroup, options, workouts);
       const currentWeekly = weeklyMuscleSets.get(selected.muscleGroup) || 0;
       
-      let sets = 2; // Default to 2 sets (maintenance/back-off level) if they are at or over target cap
+      let sets = 2; 
       
       if (mesocycleWeek === 5) {
-          sets = 2; // Deload strictly caps at 2
+          sets = 2; 
       } else if (currentWeekly < targetWeekly) {
           if (goal === 'Strength' && selected.type === 'Compound') {
               sets = 4;
-              if (currentWeekly < targetWeekly + 2) sets = 5; // Heavy volume push for strength
+              if (currentWeekly < targetWeekly + 2) sets = 5; 
           } else {
-              // Hypertrophy & Isolation
               sets = selected.type === 'Compound' ? 3 : 2; 
-              if (weakPoints.includes(selected.muscleGroup)) sets += 1; // Cap at 3-4 for hypertrophy
+              if (weakPoints.includes(selected.muscleGroup)) sets += 1; 
           }
       }
 
-      // Fractional Volume Tracking
       weeklyMuscleSets.set(selected.muscleGroup, (weeklyMuscleSets.get(selected.muscleGroup) || 0) + sets);
       
-      // Credit secondary muscles
       allMuscles.forEach(m => {
           if (m !== selected.muscleGroup) {
               const credit = getSecondaryVolume(selected.movementPlane, m);
@@ -260,7 +239,7 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
 
       let reps = selected.targetReps;
       if (goal === 'Strength' && selected.type === 'Compound') reps = '3-5';
-      if (mesocycleWeek === 5) reps = 'Deload'; // Generic deload marker, user should go easy
+      if (mesocycleWeek === 5) reps = 'Deload'; 
 
       dayExercises.push({
         id: selected.id,
@@ -277,7 +256,6 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
     return { name: `Day ${dayIndex + 1}: ${day.name}`, exercises: dayExercises, dailyFatigue };
   }).filter(r => r.exercises.length > 0);
 
-  // --- 3. Dynamic Slot Injection (Volume Deficit Fix) ---
   if (mesocycleWeek < 5) { 
       weakPoints.forEach(muscle => {
           const current = weeklyMuscleSets.get(muscle) || 0;
@@ -326,7 +304,7 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
 
   return { 
     splitName: finalSplitName, 
-    routines: routines.map(r => ({ name: r.name, exercises: r.exercises })), // Strip fatigue helper
+    routines: routines.map(r => ({ name: r.name, exercises: r.exercises })), 
     scheduleAdvice
   };
 }
@@ -341,7 +319,6 @@ export function getScientificSuggestion(exerciseName: string, workouts: Workout[
     for (const w of sortedWorkouts) {
         const found = w.exercises.find(ex => ex.name === exerciseName);
         if (found && Array.isArray(found.sets) && found.sets.length > 0) {
-            // Find Peak set by E1RM
             const peakSet = [...found.sets].sort((a, b) => {
                 const e1rmA = a.weight * (1 + a.reps / 30);
                 const e1rmB = b.weight * (1 + b.reps / 30);
@@ -366,9 +343,8 @@ export function getScientificSuggestion(exerciseName: string, workouts: Workout[
         minReps = 3; maxReps = 5;
     }
 
-    // Condition B: Add Weight
     if (lastPerf.reps >= maxReps) {
-        const increment = goal === 'Strength' ? 1.25 : 2.5; // Micro-loading for strength
+        const increment = goal === 'Strength' ? 1.25 : 2.5; 
         return { 
             weight: lastPerf.weight + increment, 
             reps: minReps, 
@@ -376,7 +352,6 @@ export function getScientificSuggestion(exerciseName: string, workouts: Workout[
             confidence: 90
         };
     } 
-    // Condition A: Add Reps
     else {
         const targetReps = lastPerf.reps < minReps ? minReps : lastPerf.reps + 1;
         return {

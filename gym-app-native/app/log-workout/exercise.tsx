@@ -58,7 +58,7 @@ export default function ExercisesList() {
     const newExercise: Exercise = {
       id: `custom-${Date.now()}`,
       name: exerciseName,
-      muscleGroup: 'Shoulders', // Hidden fallback for TS
+      muscleGroup: 'Shoulders', 
       movementPlane: 'Horizontal Push', 
       target: 'Custom',
       tier: 'B', 
@@ -145,7 +145,7 @@ export default function ExercisesList() {
                 {item.tier === 'S' && <View style={styles.badge}><Text style={styles.badgeText}>S-TIER</Text></View>}
               </View>
               
-                              {/* Show 'Custom Exercise' for custom entries */}              <Text style={styles.cardSub}>
+              <Text style={styles.cardSub}>
                 {item.id.startsWith('custom') 
                   ? 'Custom Exercise' 
                   : `${item.muscleGroup} • ${item.target}`}

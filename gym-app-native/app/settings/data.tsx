@@ -43,12 +43,12 @@ export default function DataManagement() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        const fileUri = `${FileSystem.documentDirectory}gymapp_export.json`;
-        await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+        const file = new FileSystem.File(FileSystem.Paths.document, 'gymapp_export.json');
+        await file.write(json);
         
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-            await Sharing.shareAsync(fileUri, {
+            await Sharing.shareAsync(file.uri, {
                 mimeType: 'application/json',
                 dialogTitle: 'GymApp Backup',
                 UTI: 'public.json'

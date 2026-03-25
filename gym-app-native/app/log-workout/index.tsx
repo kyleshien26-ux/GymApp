@@ -9,7 +9,7 @@ import { colors } from '../../constants/colors';
 import { useWorkouts } from '../../providers/WorkoutsProvider';
 import { useSettings } from '../../providers/SettingsProvider';
 import { ExerciseEntry, SetEntry } from '../../types/workouts';
-import { ExercisePicker } from '../../components/ExercisePicker';
+import ExercisePicker from '../../components/ExercisePicker';
 import ExerciseCard from '../../components/LogWorkout/ExerciseCard';
 import type { Exercise } from '../../constants/exercises';
 import { scheduleRestNotification, cancelAllNotifications } from '../../lib/notifications';
@@ -226,21 +226,27 @@ export default function LogWorkout() {
       <ExercisePicker visible={pickerVisible} onSelectExercise={handleSelectExercise} onClose={() => setPickerVisible(false)} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.text} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        
         <Text style={styles.title}>Log Workout</Text>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-            <TouchableOpacity onPress={() => router.push('/plate-calculator')}>
-                <Ionicons name="calculator-outline" size={22} color={colors.text} />
+        
+        {/* Action Buttons */}
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <TouchableOpacity onPress={() => router.push('/plate-calculator')} style={{marginRight: 16}}>
+                <Ionicons name="calculator-outline" size={24} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDiscard} style={styles.discardButton}>
-                <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            
+            <TouchableOpacity onPress={handleDiscard} style={{marginRight: 16, padding: 4}}>
+                <Ionicons name="trash-outline" size={24} color="#ef4444" />
             </TouchableOpacity>
+            
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.saveText}>Finish</Text>
             </TouchableOpacity>
         </View>
       </View>
-
       <ScrollView style={styles.content}>
         <View style={{flexDirection: 'row', gap: 10, marginBottom: 20}}>
           <TextInput style={[styles.titleInput, {flex: 1}]} value={workoutTitle} onChangeText={setWorkoutTitle} />
