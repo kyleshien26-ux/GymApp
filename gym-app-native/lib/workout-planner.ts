@@ -71,6 +71,10 @@ function getSecondaryVolume(plane: MovementPlane, muscle: MuscleGroup): number {
     return 0;
 }
 
+// --- EXTENSIBILITY: GENERATIVE AI PLANNER ---
+// Future developers can extend this logic by adding new `EquipmentProfile` types
+// or new `MovementPlane` arrays without altering the underlying constraint filter.
+// The `splitStructure` arrays act as dynamic, hot-swappable blueprints.
 export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptions) {
   const { daysPerWeek, legPreference, goal, weakPoints, equipmentProfile = 'Full Gym', mesocycleWeek = 1 } = options;
   
@@ -309,6 +313,10 @@ export function generateAdvancedPlan(workouts: Workout[], options: PlanningOptio
   };
 }
 
+// --- EXTENSIBILITY: PROGRESSION ENGINE ---
+// Currently a deterministic, rule-based engine. 
+// This function signature is designed to be replaced by a probabilistic Machine Learning 
+// classifier in future versions (e.g., passing RPE and sleep data to determine confidence).
 export function getScientificSuggestion(exerciseName: string, workouts: Workout[], goal: 'Strength' | 'Hypertrophy' | 'Endurance') {
     const exercise = exerciseDatabase.find(e => e.name === exerciseName);
     if (!exercise) return { weight: 0, reps: 10, reason: 'New', confidence: 0 };
